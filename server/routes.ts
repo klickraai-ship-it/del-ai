@@ -8,6 +8,7 @@ import {
   campaignSubscribers,
   campaignAnalytics,
   settings,
+  linkClicks,
   insertSubscriberSchema,
   insertEmailTemplateSchema,
   insertCampaignSchema,
@@ -18,8 +19,11 @@ import {
   type CampaignAnalytics,
 } from "@/shared/schema";
 import { eq, desc, inArray, and, sql } from "drizzle-orm";
+import { setupTrackingRoutes } from "./tracking";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  
+  setupTrackingRoutes(app);
   
   // ========== SUBSCRIBERS API ==========
   
@@ -76,7 +80,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .insert(subscribers)
         .values({
           ...validatedData,
-          updatedAt: new Date(),
         })
         .returning();
       
@@ -94,7 +97,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .update(subscribers)
         .set({
           ...req.body,
-          updatedAt: new Date(),
         })
         .where(eq(subscribers.id, req.params.id))
         .returning();
@@ -174,7 +176,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .insert(emailTemplates)
         .values({
           ...validatedData,
-          updatedAt: new Date(),
         })
         .returning();
       
@@ -192,7 +193,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .update(emailTemplates)
         .set({
           ...req.body,
-          updatedAt: new Date(),
         })
         .where(eq(emailTemplates.id, req.params.id))
         .returning();
@@ -247,7 +247,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           htmlContent: original.htmlContent,
           textContent: original.textContent,
           thumbnailUrl: original.thumbnailUrl,
-          updatedAt: new Date(),
         })
         .returning();
       
@@ -324,7 +323,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .insert(campaigns)
         .values({
           ...validatedData,
-          updatedAt: new Date(),
         })
         .returning();
       
@@ -347,7 +345,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .update(campaigns)
         .set({
           ...req.body,
-          updatedAt: new Date(),
         })
         .where(eq(campaigns.id, req.params.id))
         .returning();
@@ -430,7 +427,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .set({
           status: 'sending',
           sentAt: new Date(),
-          updatedAt: new Date(),
         })
         .where(eq(campaigns.id, req.params.id))
         .returning();
@@ -440,7 +436,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .update(campaignAnalytics)
         .set({
           totalSubscribers: targetSubscribers.length,
-          updatedAt: new Date(),
         })
         .where(eq(campaignAnalytics.campaignId, req.params.id));
       
@@ -544,6 +539,203 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // ========== CAMPAIGN SENDING API ==========
+  
+  app.post("/api/campaigns/:id/send", async (req, res) => {
+    try {
+      const campaignId = req.params.id;
+      
+      const [campaign] = await db
+        .select()
+        .from(campaigns)
+        .where(eq(campaigns.id, campaignId))
+        .limit(1);
+      
+      if (!campaign) {
+        return res.status(404).json({ message: "Campaign not found" });
+      }
+      
+      if (campaign.status === 'sent') {
+        return res.status(400).json({ message: "Campaign has already been sent" });
+      }
+      
+      let emailContent = { subject: campaign.subject, htmlContent: '', textContent: '' as string | undefined };
+      
+      if (campaign.templateId) {
+        const [template] = await db
+          .select()
+          .from(emailTemplates)
+          .where(eq(emailTemplates.id, campaign.templateId))
+          .limit(1);
+        
+        if (template) {
+          emailContent.htmlContent = template.htmlContent;
+          emailContent.textContent = template.textContent || '';
+        }
+      } else {
+        emailContent.htmlContent = '<html><body><p>Default email content</p></body></html>';
+      }
+      
+      let targetSubscribers = await db
+        .select()
+        .from(subscribers)
+        .where(eq(subscribers.status, 'active'));
+      
+      if (campaign.lists.length > 0) {
+        targetSubscribers = targetSubscribers.filter(sub => 
+          sub.lists.some(list => campaign.lists.includes(list))
+        );
+      }
+      
+      if (targetSubscribers.length === 0) {
+        return res.status(400).json({ message: "No active subscribers found for this campaign" });
+      }
+      
+      for (const subscriber of targetSubscribers) {
+        await db.insert(campaignSubscribers).values({
+          campaignId: campaign.id,
+          subscriberId: subscriber.id,
+          status: 'pending',
+        }).onConflictDoNothing();
+      }
+      
+      await db
+        .update(campaigns)
+        .set({ status: 'sending' })
+        .where(eq(campaigns.id, campaignId));
+      
+      res.json({
+        message: "Campaign sending started",
+        recipientCount: targetSubscribers.length,
+        status: 'sending',
+      });
+      
+      const trackingDomain = process.env.REPL_SLUG 
+        ? `https://${process.env.REPL_SLUG}.${process.env.REPLIT_DEV_DOMAIN}`
+        : 'http://localhost:5000';
+      
+      setImmediate(async () => {
+        try {
+          const { EmailTrackingService, BatchEmailProcessor } = await import('./emailService');
+          const trackingService = new EmailTrackingService(trackingDomain);
+          const batchProcessor = new BatchEmailProcessor(100, 1000);
+          
+          let sentCount = 0;
+          let failedCount = 0;
+          
+          for (const subscriber of targetSubscribers) {
+            try {
+              let processedContent = {
+                ...emailContent,
+                subject: trackingService.replaceMergeTags(emailContent.subject, subscriber),
+                htmlContent: trackingService.replaceMergeTags(emailContent.htmlContent, subscriber),
+              };
+              
+              processedContent = trackingService.processEmailForTracking(processedContent, {
+                campaignId: campaign.id,
+                subscriberId: subscriber.id,
+                trackingDomain,
+              });
+              
+              console.log(`Sending email to ${subscriber.email} for campaign ${campaign.id}`);
+              
+              await db.execute(sql`
+                UPDATE campaign_subscribers
+                SET status = 'sent', sent_at = NOW()
+                WHERE campaign_id = ${campaign.id}
+                AND subscriber_id = ${subscriber.id}
+              `);
+              
+              sentCount++;
+            } catch (error) {
+              console.error(`Failed to send email to ${subscriber.email}:`, error);
+              await db.execute(sql`
+                UPDATE campaign_subscribers
+                SET status = 'failed'
+                WHERE campaign_id = ${campaign.id}
+                AND subscriber_id = ${subscriber.id}
+              `);
+              failedCount++;
+            }
+          }
+          
+          await db
+            .update(campaigns)
+            .set({ 
+              status: 'sent',
+              sentAt: new Date(),
+            })
+            .where(eq(campaigns.id, campaignId));
+          
+          await db.insert(campaignAnalytics).values({
+            campaignId: campaign.id,
+            totalSubscribers: targetSubscribers.length,
+            sent: sentCount,
+            delivered: sentCount,
+            failed: failedCount,
+          }).onConflictDoUpdate({
+            target: campaignAnalytics.campaignId,
+            set: {
+              sent: sentCount,
+              delivered: sentCount,
+              failed: failedCount,
+            },
+          });
+          
+          console.log(`Campaign ${campaignId} completed: ${sentCount} sent, ${failedCount} failed`);
+        } catch (error) {
+          console.error(`Error in background campaign send:`, error);
+          await db
+            .update(campaigns)
+            .set({ status: 'failed' })
+            .where(eq(campaigns.id, campaignId));
+        }
+      });
+      
+    } catch (error) {
+      console.error("Error starting campaign send:", error);
+      res.status(500).json({ message: "Failed to start campaign send" });
+    }
+  });
+  
+  app.get("/api/campaigns/:id/analytics/clicks", async (req, res) => {
+    try {
+      const campaignId = req.params.id;
+      
+      const clicks = await db
+        .select()
+        .from(linkClicks)
+        .where(eq(linkClicks.campaignId, campaignId))
+        .orderBy(desc(linkClicks.clickedAt));
+      
+      const linkStats = clicks.reduce((acc, click) => {
+        if (!acc[click.url]) {
+          acc[click.url] = { url: click.url, clicks: 0, uniqueClicks: new Set() };
+        }
+        acc[click.url].clicks++;
+        acc[click.url].uniqueClicks.add(click.subscriberId);
+        return acc;
+      }, {} as Record<string, { url: string; clicks: number; uniqueClicks: Set<string> }>);
+      
+      const linkStatsArray = Object.values(linkStats).map(stat => ({
+        url: stat.url,
+        totalClicks: stat.clicks,
+        uniqueClicks: stat.uniqueClicks.size,
+      }));
+      
+      res.json({
+        campaignId,
+        totalClicks: clicks.length,
+        uniqueClickers: new Set(clicks.map(c => c.subscriberId)).size,
+        linkStats: linkStatsArray,
+        recentClicks: clicks.slice(0, 50),
+      });
+    } catch (error) {
+      console.error("Error fetching click analytics:", error);
+      res.status(500).json({ message: "Failed to fetch click analytics" });
+    }
+  });
+  
   // ========== SETTINGS API ==========
   
   // Get all settings
@@ -598,7 +790,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .update(settings)
           .set({
             value,
-            updatedAt: new Date(),
           })
           .where(eq(settings.key, req.params.key))
           .returning();
@@ -610,7 +801,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .values({
             key: req.params.key,
             value,
-            updatedAt: new Date(),
           })
           .returning();
         

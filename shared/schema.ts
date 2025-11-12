@@ -1,7 +1,6 @@
 import { sql } from "drizzle-orm";
 import { pgTable, text, varchar, timestamp, integer, boolean, jsonb } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
-import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Subscribers table
@@ -21,13 +20,13 @@ export const subscribersRelations = relations(subscribers, ({ many }) => ({
   campaignSubscribers: many(campaignSubscribers),
 }));
 
-export const insertSubscriberSchema = createInsertSchema(subscribers).pick({
-  email: true,
-  firstName: true,
-  lastName: true,
-  status: true,
-  lists: true,
-  metadata: true,
+export const insertSubscriberSchema = z.object({
+  email: z.string().email(),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+  status: z.enum(['active', 'unsubscribed', 'bounced', 'complained']).default('active'),
+  lists: z.array(z.string()).default([]),
+  metadata: z.record(z.any()).default({}),
 });
 
 export type InsertSubscriber = z.infer<typeof insertSubscriberSchema>;
@@ -49,12 +48,12 @@ export const emailTemplatesRelations = relations(emailTemplates, ({ many }) => (
   campaigns: many(campaigns),
 }));
 
-export const insertEmailTemplateSchema = createInsertSchema(emailTemplates).pick({
-  name: true,
-  subject: true,
-  htmlContent: true,
-  textContent: true,
-  thumbnailUrl: true,
+export const insertEmailTemplateSchema = z.object({
+  name: z.string(),
+  subject: z.string(),
+  htmlContent: z.string(),
+  textContent: z.string().optional(),
+  thumbnailUrl: z.string().optional(),
 });
 
 export type InsertEmailTemplate = z.infer<typeof insertEmailTemplateSchema>;
@@ -86,17 +85,17 @@ export const campaignsRelations = relations(campaigns, ({ one, many }) => ({
   analytics: one(campaignAnalytics),
 }));
 
-export const insertCampaignSchema = createInsertSchema(campaigns).pick({
-  name: true,
-  subject: true,
-  templateId: true,
-  status: true,
-  fromName: true,
-  fromEmail: true,
-  replyTo: true,
-  lists: true,
-  scheduledAt: true,
-  sentAt: true,
+export const insertCampaignSchema = z.object({
+  name: z.string(),
+  subject: z.string(),
+  templateId: z.string().optional(),
+  status: z.enum(['draft', 'scheduled', 'sending', 'sent', 'paused', 'failed']).default('draft'),
+  fromName: z.string(),
+  fromEmail: z.string().email(),
+  replyTo: z.string().email().optional(),
+  lists: z.array(z.string()).default([]),
+  scheduledAt: z.string().optional(),
+  sentAt: z.string().optional(),
 });
 
 export type InsertCampaign = z.infer<typeof insertCampaignSchema>;
@@ -184,9 +183,9 @@ export const settings = pgTable("settings", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-export const insertSettingSchema = createInsertSchema(settings).pick({
-  key: true,
-  value: true,
+export const insertSettingSchema = z.object({
+  key: z.string(),
+  value: z.any(),
 });
 
 export type InsertSetting = z.infer<typeof insertSettingSchema>;
