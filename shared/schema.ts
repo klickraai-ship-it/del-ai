@@ -91,6 +91,41 @@ export const insertSettingSchema = z.object({
 export type InsertSetting = z.infer<typeof insertSettingSchema>;
 export type Setting = typeof settings.$inferSelect;
 
+// Email Provider Integrations table (per-user email provider credentials)
+export const emailProviderIntegrations = pgTable("email_provider_integrations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique().references(() => users.id, { onDelete: 'cascade' }),
+  provider: text("provider").notNull().default('resend'), // 'resend' | 'ses' | 'sendgrid' | 'mailgun'
+  isActive: boolean("is_active").notNull().default(true),
+  config: jsonb("config").notNull(), // Encrypted credentials and configuration
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  userIdIdx: index("email_provider_integrations_user_id_idx").on(table.userId),
+}));
+
+export const insertEmailProviderIntegrationSchema = z.object({
+  provider: z.enum(['resend', 'ses', 'sendgrid', 'mailgun']).default('resend'),
+  isActive: z.boolean().default(true),
+  config: z.object({
+    // Resend config
+    apiKey: z.string().optional(),
+    fromEmail: z.string().email().optional(),
+    // AWS SES config
+    awsAccessKeyId: z.string().optional(),
+    awsSecretAccessKey: z.string().optional(),
+    awsRegion: z.string().optional(),
+    // SendGrid config
+    sendgridApiKey: z.string().optional(),
+    // Mailgun config
+    mailgunApiKey: z.string().optional(),
+    mailgunDomain: z.string().optional(),
+  }),
+}).strict();
+
+export type InsertEmailProviderIntegration = z.infer<typeof insertEmailProviderIntegrationSchema>;
+export type EmailProviderIntegration = typeof emailProviderIntegrations.$inferSelect;
+
 // =============================================================================
 // TENANT-SCOPED DOMAIN TABLES (lists, blacklist, rules, subscribers, templates, campaigns)
 // =============================================================================

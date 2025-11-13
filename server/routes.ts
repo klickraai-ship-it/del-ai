@@ -971,6 +971,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           let sentCount = 0;
           let failedCount = 0;
           
+          const { emailService } = await import('./emailProvider');
+          
           for (const subscriber of targetSubscribers) {
             try {
               const processedContentBase = {
@@ -988,9 +990,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
               
               console.log(`Sending email to ${subscriber.email} for campaign ${campaign.id}`);
               
+              await emailService.sendEmail({
+                to: subscriber.email,
+                from: campaign.fromEmail,
+                fromName: campaign.fromName,
+                replyTo: campaign.replyTo,
+                subject: processedContent.subject,
+                html: processedContent.htmlContent,
+                text: processedContent.textContent,
+              });
+              
               await db.execute(sql`
                 UPDATE campaign_subscribers
-                SET status = 'sent', sent_at = NOW()
+                SET status = 'sent', sent_at = NOW(), html_content = ${processedContent.htmlContent}
                 WHERE campaign_id = ${campaign.id}
                 AND subscriber_id = ${subscriber.id}
               `);
