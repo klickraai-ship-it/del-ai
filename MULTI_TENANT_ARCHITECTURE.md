@@ -10,22 +10,219 @@ All tenant-specific tables include:
 - **userId column**: Foreign key to `users.id` with `CASCADE DELETE`
 - **Indexes**: All userId columns are indexed for query performance
 - **Composite unique constraints**: Parent tables have `UNIQUE(id, userId)` to prevent ID reuse across tenants
+- **Composite foreign keys**: Child tables enforce `(childId, userId) → (parentId, userId)` relationships
 
 ### Application-Level Enforcement (CRITICAL)
 
 ⚠️ **IMPORTANT**: The database schema alone does NOT fully prevent cross-tenant data access. Application code MUST enforce tenant isolation in ALL queries.
 
 **Every database query MUST:**
-1. Filter by the authenticated user's `userId`
+1. Filter by the authenticated user's `userId` from session (NEVER from client input)
 2. Verify tenant ownership before updates/deletes
-3. Never trust client-provided IDs without tenant verification
+3. Never trust client-provided IDs or userId without tenant verification
+4. Use `.strict()` Zod schemas to reject unknown keys (prevents userId smuggling)
+5. Sanitize PATCH/PUT payloads to prevent userId reassignment
+
+## Authentication & Security
+
+### Session-Based Authentication
+The application uses session-based authentication with Bearer tokens:
+
+1. **Signup**: POST `/api/auth/signup`
+   - Validates email format and password strength (min 8 chars)
+   - Checks for duplicate emails
+   - Hashes password with bcrypt (cost factor 10)
+   - Creates user and session token (30-day expiration)
+
+2. **Login**: POST `/api/auth/login`
+   - Verifies email and password
+   - Creates new session with secure random token
+   - Returns user data and Bearer token
+
+3. **Logout**: POST `/api/auth/logout`
+   - Deletes session from database
+   - Client should discard token
+
+4. **Get Current User**: GET `/api/auth/me`
+   - Returns authenticated user data
+   - Requires valid Bearer token
+
+### requireAuth Middleware
+All tenant-scoped routes use the `requireAuth` middleware:
+
+```typescript
+async function requireAuth(req, res, next) {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  
+  if (!token) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  
+  const [session] = await db
+    .select()
+    .from(sessions)
+    .where(
+      and(
+        eq(sessions.token, token),
+        gt(sessions.expiresAt, new Date())
+      )
+    )
+    .limit(1);
+  
+  if (!session) {
+    return res.status(401).json({ error: 'Invalid or expired session' });
+  }
+  
+  // CRITICAL: Attach userId from session, never from client
+  (req as any).userId = session.userId;
+  next();
+}
+```
+
+### Multi-Layer Security Defense
+
+#### Layer 1: Zod Schema Validation with `.strict()`
+All client-side insert schemas use `.strict()` to reject unknown keys:
+
+```typescript
+// ✅ CORRECT - Rejects userId injection
+export const insertSubscriberSchema = z.object({
+  email: z.string().email(),
+  firstName: z.string().optional(),
+  // ... other fields
+}).strict(); // CRITICAL: Blocks {"userId":"victim-id",...}
+
+// ❌ WRONG - Allows userId smuggling
+export const insertSubscriberSchema = z.object({
+  email: z.string().email(),
+  // ...
+}); // Missing .strict() - vulnerable!
+```
+
+**Attack Prevention:**
+```bash
+# Attack attempt:
+POST /api/subscribers
+Body: {"userId":"victim-id","email":"sub@example.com"}
+
+# Response: 400 Bad Request
+{"error": "Unrecognized key: userId"}
+```
+
+#### Layer 2: Server-Side userId Injection
+All CREATE operations inject userId from session, NOT from client:
+
+```typescript
+// ✅ CORRECT - userId from session
+app.post('/api/subscribers', requireAuth, async (req, res) => {
+  const validatedData = insertSubscriberSchema.parse(req.body); // .strict() rejects userId
+  
+  const [subscriber] = await db.insert(subscribers).values({
+    ...validatedData,
+    userId: (req as any).userId, // From session, not client!
+  }).returning();
+});
+
+// ❌ WRONG - Vulnerable to userId override
+app.post('/api/subscribers', requireAuth, async (req, res) => {
+  const [subscriber] = await db.insert(subscribers).values({
+    userId: (req as any).userId, // Could be overwritten by ...req.body!
+    ...req.body, // DANGEROUS - spreads last, overwrites userId
+  }).returning();
+});
+```
+
+#### Layer 3: PATCH/PUT Payload Sanitization
+All update operations strip protected fields before database updates:
+
+```typescript
+// ✅ CORRECT - Sanitizes userId
+app.patch('/api/subscribers/:id', requireAuth, async (req, res) => {
+  // Strip protected/system fields
+  const { userId, id, createdAt, updatedAt, ...allowedUpdates } = req.body;
+  
+  const [updated] = await db
+    .update(subscribers)
+    .set(allowedUpdates) // SAFE - userId cannot be changed
+    .where(
+      and(
+        eq(subscribers.id, req.params.id),
+        eq(subscribers.userId, (req as any).userId)
+      )
+    )
+    .returning();
+});
+
+// ❌ WRONG - Allows userId reassignment
+app.patch('/api/subscribers/:id', requireAuth, async (req, res) => {
+  const [updated] = await db
+    .update(subscribers)
+    .set({...req.body}) // DANGEROUS - allows userId override!
+    .where(
+      and(
+        eq(subscribers.id, req.params.id),
+        eq(subscribers.userId, (req as any).userId)
+      )
+    )
+    .returning();
+});
+```
+
+**Attack Prevention:**
+```bash
+# Attack attempt:
+PATCH /api/subscribers/abc123
+Body: {"userId":"victim-id","email":"hacked@example.com"}
+
+# Result:
+# - email updated to "hacked@example.com" (allowed)
+# - userId remains original value (protected)
+# - Attack FAILED - tenant isolation maintained
+```
+
+#### Layer 4: Query-Level Tenant Filtering
+All GET/UPDATE/DELETE operations filter by userId from session:
+
+```typescript
+// ✅ CORRECT - Always filter by userId
+app.get('/api/subscribers', requireAuth, async (req, res) => {
+  const subs = await db
+    .select()
+    .from(subscribers)
+    .where(eq(subscribers.userId, (req as any).userId)); // REQUIRED
+});
+
+// ❌ WRONG - Missing userId filter
+app.get('/api/subscribers', requireAuth, async (req, res) => {
+  const subs = await db.select().from(subscribers); // Returns ALL users' data!
+});
+```
+
+### Security Testing Results
+
+All attack vectors have been tested and blocked:
+
+✅ **CREATE Attack (Blocked)**
+- Request: `POST /api/subscribers {"userId":"victim-id","email":"sub@example.com"}`
+- Response: `400 "Unrecognized key: userId"`
+- Result: `.strict()` schema validation prevents injection
+
+✅ **UPDATE Attack (Blocked)**
+- Request: `PATCH /api/subscribers/123 {"userId":"victim-id","email":"new@example.com"}`
+- Response: `200` with original userId unchanged
+- Result: Payload sanitization strips userId field
+
+✅ **Legitimate Operations (Working)**
+- Request: `POST /api/subscribers {"email":"legit@example.com"}`
+- Response: `201` with server-injected userId
+- Result: Normal operations work correctly
 
 ## Tables with Tenant Isolation
 
 ### Core Tables
 - ✅ `users` - Foundation table (tenant identity)
-- ✅ `sessions` - User sessions
-- ✅ `user_settings` - User preferences
+- ✅ `sessions` - User sessions (userId FK)
+- ✅ `user_settings` - User preferences (userId FK)
 
 ### Domain Tables
 - ✅ `subscribers` - Email subscribers (userId + unique email per user)
@@ -36,9 +233,9 @@ All tenant-specific tables include:
 - ✅ `rules` - Automation rules (userId)
 
 ### Join & Analytics Tables
-- ✅ `campaign_subscribers` - Campaign-subscriber relationships (userId)
-- ✅ `link_clicks` - Click tracking (userId)
-- ✅ `campaign_analytics` - Campaign metrics (userId)
+- ✅ `campaign_subscribers` - Campaign-subscriber relationships (userId, composite FK)
+- ✅ `link_clicks` - Click tracking (userId, composite FK)
+- ✅ `campaign_analytics` - Campaign metrics (userId, composite FK)
 
 ## Query Patterns
 
@@ -134,44 +331,6 @@ const campaignWithTemplate = await db
   .where(eq(campaigns.id, campaignId)); // Missing userId filter!
 ```
 
-## Authentication Middleware
-
-Every protected API route MUST:
-1. Verify session token validity
-2. Extract userId from session
-3. Pass userId to all database queries
-4. Never trust userId from request body/query params
-
-```typescript
-// Example middleware
-async function requireAuth(req, res, next) {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  
-  if (!token) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  
-  const session = await db
-    .select()
-    .from(sessions)
-    .where(
-      and(
-        eq(sessions.token, token),
-        gt(sessions.expiresAt, new Date())
-      )
-    )
-    .limit(1);
-  
-  if (!session[0]) {
-    return res.status(401).json({ error: 'Invalid session' });
-  }
-  
-  // CRITICAL: Attach userId to request for all queries
-  req.userId = session[0].userId;
-  next();
-}
-```
-
 ## Data Import/Export
 
 ### Import
@@ -212,6 +371,11 @@ await db
 // - campaign_subscribers, link_clicks, campaign_analytics
 ```
 
+Subscriber data includes GDPR compliance fields:
+- `consentGiven` - Boolean flag for explicit consent
+- `consentTimestamp` - When consent was given
+- `gdprDataExportedAt` - Last data export timestamp
+
 ## Testing Multi-Tenant Isolation
 
 ### Unit Tests
@@ -239,30 +403,43 @@ test('users cannot access other users data', async () => {
 ```
 
 ### Integration Tests
-1. Create two test users
-2. Create data for user A
-3. Attempt to access user A's data as user B
-4. Verify access is denied (empty results)
+1. Create two test users with separate sessions
+2. Create data for user A (authenticated)
+3. Attempt to access user A's data as user B (different session)
+4. Verify access is denied (empty results or 404)
+5. Attempt to update/delete user A's data as user B
+6. Verify operation fails (no rows affected)
+
+### Security Penetration Tests
+1. **userId Injection in CREATE**:
+   - Send `POST /api/subscribers {"userId":"victim-id","email":"test@example.com"}`
+   - Expect: `400 "Unrecognized key: userId"`
+   
+2. **userId Reassignment in UPDATE**:
+   - Send `PATCH /api/subscribers/123 {"userId":"victim-id",...}`
+   - Expect: `200` with original userId unchanged
+   
+3. **Cross-Tenant Access in GET**:
+   - Create subscriber as User A
+   - Try to fetch as User B
+   - Expect: Empty array or 404
 
 ## Common Pitfalls
 
-### 1. Trusting Client-Provided IDs
+### 1. Trusting Client-Provided IDs or userId
 ```typescript
-// ❌ WRONG
-app.delete('/api/campaigns/:id', async (req, res) => {
-  await db.delete(campaigns).where(eq(campaigns.id, req.params.id));
+// ❌ WRONG - Trusts userId from client
+app.post('/api/subscribers', async (req, res) => {
+  await db.insert(subscribers).values(req.body); // Contains malicious userId!
 });
 
-// ✅ CORRECT
-app.delete('/api/campaigns/:id', requireAuth, async (req, res) => {
-  await db
-    .delete(campaigns)
-    .where(
-      and(
-        eq(campaigns.id, req.params.id),
-        eq(campaigns.userId, req.userId) // From auth middleware
-      )
-    );
+// ✅ CORRECT - userId from session only
+app.post('/api/subscribers', requireAuth, async (req, res) => {
+  const validatedData = insertSubscriberSchema.parse(req.body); // .strict() blocks userId
+  await db.insert(subscribers).values({
+    ...validatedData,
+    userId: (req as any).userId, // From session
+  });
 });
 ```
 
@@ -279,6 +456,33 @@ await db
 
 // ❌ WRONG - Could delete other users' data
 await db.delete(campaigns); // Missing where clause!
+```
+
+### 4. Missing `.strict()` on Zod Schemas
+```typescript
+// ❌ WRONG - Allows unknown keys
+export const insertSubscriberSchema = z.object({
+  email: z.string().email(),
+});
+
+// ✅ CORRECT - Rejects unknown keys
+export const insertSubscriberSchema = z.object({
+  email: z.string().email(),
+}).strict(); // Prevents userId smuggling
+```
+
+### 5. Spreading req.body in Updates
+```typescript
+// ❌ WRONG - Allows userId override
+app.patch('/api/subscribers/:id', requireAuth, async (req, res) => {
+  await db.update(subscribers).set({...req.body}); // DANGEROUS!
+});
+
+// ✅ CORRECT - Sanitizes protected fields
+app.patch('/api/subscribers/:id', requireAuth, async (req, res) => {
+  const { userId, id, createdAt, updatedAt, ...allowed } = req.body;
+  await db.update(subscribers).set(allowed); // SAFE
+});
 ```
 
 ## Composite Unique Constraints
@@ -298,6 +502,23 @@ The following tables have composite unique constraints:
 
 ### lists
 - `UNIQUE(userId, name)` - List names must be unique per user
+
+## Composite Foreign Keys
+
+Child tables enforce same-tenant relationships with composite FKs:
+
+### campaign_subscribers
+- `(campaign_id, user_id) → campaigns(id, user_id)`
+- `(subscriber_id, user_id) → subscribers(id, user_id)`
+- Prevents linking campaigns/subscribers from different tenants
+
+### link_clicks
+- `(campaign_id, user_id) → campaigns(id, user_id)`
+- Prevents tracking clicks for other users' campaigns
+
+### campaign_analytics
+- `(campaign_id, user_id) → campaigns(id, user_id)`
+- Prevents viewing analytics for other users' campaigns
 
 ## Performance Considerations
 
@@ -326,11 +547,33 @@ All userId columns were added with NOT NULL constraints. When applying to existi
 1. Tables were truncated to allow adding NOT NULL userId columns
 2. Future migrations will preserve data by setting default userId before constraint
 3. Always backup data before schema changes
+4. Use `npm run db:push --force` to apply schema changes
+
+## Production Security Checklist
+
+Before deploying to production, verify:
+
+- [x] **Authentication**: Bcrypt password hashing with cost factor 10
+- [x] **Session Management**: Bearer tokens with 30-day expiration
+- [x] **Middleware**: requireAuth applied to ALL tenant-scoped routes
+- [x] **Schema Validation**: All insert schemas use `.strict()`
+- [x] **CREATE Operations**: userId injected from session, never from client
+- [x] **UPDATE Operations**: req.body sanitized to strip userId/id/timestamps
+- [x] **Query Filtering**: All queries filter by session userId
+- [x] **Database Constraints**: Composite FKs enforce same-tenant relationships
+- [x] **Cascade Deletes**: ON DELETE CASCADE configured correctly
+- [x] **Attack Testing**: userId injection/reassignment attacks blocked
+- [x] **GDPR Compliance**: Consent and data export fields present
 
 ## Summary
 
-✅ **Database provides**: Structure, indexes, cascade deletes, unique constraints
-⚠️ **Application MUST provide**: Query-level tenant filtering, authentication, authorization
+✅ **Database provides**: Structure, indexes, cascade deletes, unique constraints, composite FKs
+✅ **Application provides**: 
+  - Session-based authentication with bcrypt
+  - requireAuth middleware on all protected routes
+  - Zod `.strict()` schemas blocking userId injection
+  - Payload sanitization preventing userId reassignment
+  - Query-level tenant filtering by session userId
 
 This is the industry-standard approach used by:
 - Stripe (API keys scope to accounts)
@@ -338,4 +581,4 @@ This is the industry-standard approach used by:
 - Slack (workspace isolation)
 - Most B2B SaaS platforms
 
-The key is **developer discipline** - every query MUST include userId filtering.
+The key is **defense in depth** with multiple security layers working together to prevent tenant breakout attacks.
