@@ -24,7 +24,8 @@ import {
   Heading2,
   Heading3,
   Image as ImageIcon,
-  Palette
+  Palette,
+  Eye
 } from 'lucide-react';
 
 interface RichTextEditorProps {
