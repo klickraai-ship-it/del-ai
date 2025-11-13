@@ -72,18 +72,18 @@ const SubscribersList: React.FC = () => {
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white">Subscribers</h1>
-          <p className="text-gray-400 mt-1">Manage your email subscriber list</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Subscribers</h1>
+          <p className="text-sm text-gray-400 mt-1">Manage your email subscriber list</p>
         </div>
         <button
           onClick={() => setShowAddModal(true)}
-          className="flex items-center px-4 py-2 bg-brand-blue text-white rounded-lg hover:bg-brand-blue-light transition-colors"
+          className="flex items-center justify-center px-4 py-2.5 bg-brand-blue text-white rounded-lg hover:bg-brand-blue-light transition-colors text-sm sm:text-base"
         >
           <Plus className="h-5 w-5 mr-2" />
-          Add Subscriber
+          <span>Add Subscriber</span>
         </button>
       </div>
 
@@ -105,28 +105,84 @@ const SubscribersList: React.FC = () => {
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-blue"></div>
         </div>
       ) : (
-        <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-900">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Email</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Lists</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-700">
-              {filteredSubscribers.map((subscriber) => (
-                <tr key={subscriber.id} className="hover:bg-gray-750">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{subscriber.email}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                    {subscriber.firstName || subscriber.lastName
-                      ? `${subscriber.firstName || ''} ${subscriber.lastName || ''}`.trim()
-                      : '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+        <>
+          {/* Desktop table view */}
+          <div className="hidden md:block bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-gray-900">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Email</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Lists</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-700">
+                {filteredSubscribers.map((subscriber) => (
+                  <tr key={subscriber.id} className="hover:bg-gray-750">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{subscriber.email}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                      {subscriber.firstName || subscriber.lastName
+                        ? `${subscriber.firstName || ''} ${subscriber.lastName || ''}`.trim()
+                        : '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        subscriber.status === 'active' ? 'bg-green-900 text-green-200' :
+                        subscriber.status === 'unsubscribed' ? 'bg-yellow-900 text-yellow-200' :
+                        'bg-red-900 text-red-200'
+                      }`}>
+                        {subscriber.status === 'active' && <UserCheck className="h-3 w-3 mr-1" />}
+                        {subscriber.status === 'unsubscribed' && <UserX className="h-3 w-3 mr-1" />}
+                        {subscriber.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                      {subscriber.lists.length > 0 ? subscriber.lists.join(', ') : '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <button
+                        onClick={() => handleDeleteSubscriber(subscriber.id)}
+                        className="text-red-400 hover:text-red-300 ml-3 min-w-[44px] min-h-[44px] inline-flex items-center justify-center"
+                        aria-label="Delete subscriber"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {filteredSubscribers.length === 0 && (
+              <div className="text-center py-12 text-gray-400">
+                No subscribers found
+              </div>
+            )}
+          </div>
+
+          {/* Mobile card view */}
+          <div className="block md:hidden space-y-3">
+            {filteredSubscribers.length === 0 ? (
+              <div className="text-center py-12 text-gray-400 bg-gray-800 rounded-lg border border-gray-700">
+                No subscribers found
+              </div>
+            ) : (
+              filteredSubscribers.map((subscriber) => (
+                <div key={subscriber.id} className="bg-gray-800 rounded-lg border border-gray-700 p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Mail className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                        <p className="text-sm font-medium text-white truncate">{subscriber.email}</p>
+                      </div>
+                      {(subscriber.firstName || subscriber.lastName) && (
+                        <p className="text-sm text-gray-300 ml-6">
+                          {`${subscriber.firstName || ''} ${subscriber.lastName || ''}`.trim()}
+                        </p>
+                      )}
+                    </div>
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0 ${
                       subscriber.status === 'active' ? 'bg-green-900 text-green-200' :
                       subscriber.status === 'unsubscribed' ? 'bg-yellow-900 text-yellow-200' :
                       'bg-red-900 text-red-200'
@@ -135,34 +191,36 @@ const SubscribersList: React.FC = () => {
                       {subscriber.status === 'unsubscribed' && <UserX className="h-3 w-3 mr-1" />}
                       {subscriber.status}
                     </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                    {subscriber.lists.length > 0 ? subscriber.lists.join(', ') : '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  </div>
+                  {subscriber.lists.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {subscriber.lists.map((list, idx) => (
+                        <span key={idx} className="inline-flex items-center px-2 py-1 bg-gray-700 text-gray-300 rounded text-xs">
+                          {list}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex justify-end pt-2 border-t border-gray-700">
                     <button
                       onClick={() => handleDeleteSubscriber(subscriber.id)}
-                      className="text-red-400 hover:text-red-300 ml-3"
+                      className="inline-flex items-center gap-2 px-4 py-2.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors min-h-[44px]"
                     >
                       <Trash2 className="h-4 w-4" />
+                      <span className="text-sm font-medium">Delete</span>
                     </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {filteredSubscribers.length === 0 && (
-            <div className="text-center py-12 text-gray-400">
-              No subscribers found
-            </div>
-          )}
-        </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </>
       )}
 
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full">
-            <h2 className="text-xl font-bold text-white mb-4">Add New Subscriber</h2>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-lg p-4 sm:p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg sm:text-xl font-bold text-white mb-4">Add New Subscriber</h2>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">Email *</label>

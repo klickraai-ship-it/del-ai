@@ -199,18 +199,18 @@ const CampaignsList: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">Campaigns</h1>
-          <p className="text-gray-400 mt-1.5">Create and manage email campaigns</p>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">Campaigns</h1>
+          <p className="text-sm text-gray-400 mt-1 sm:mt-1.5">Create and manage email campaigns</p>
         </div>
         <button
           onClick={() => setShowAddModal(true)}
-          className="flex items-center px-5 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-500 hover:to-purple-500 transition-all duration-200 shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 hover:scale-105"
+          className="flex items-center justify-center px-4 sm:px-5 py-2.5 sm:py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-500 hover:to-purple-500 transition-all duration-200 shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 text-sm sm:text-base"
         >
           <Plus className="h-5 w-5 mr-2" />
-          Create Campaign
+          <span>Create Campaign</span>
         </button>
       </div>
 
@@ -232,77 +232,147 @@ const CampaignsList: React.FC = () => {
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-blue"></div>
         </div>
       ) : (
-        <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-900">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Campaign</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">From</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Lists</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-700">
-              {filteredCampaigns.map((campaign) => (
-                <tr key={campaign.id} className="hover:bg-gray-750">
-                  <td className="px-6 py-4">
-                    <div>
-                      <div className="text-sm font-medium text-white">{campaign.name}</div>
-                      <div className="text-xs text-gray-400">{campaign.subject}</div>
+        <>
+          {/* Desktop table view */}
+          <div className="hidden md:block bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-gray-900">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Campaign</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">From</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Lists</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-700">
+                {filteredCampaigns.map((campaign) => (
+                  <tr key={campaign.id} className="hover:bg-gray-750">
+                    <td className="px-6 py-4">
+                      <div>
+                        <div className="text-sm font-medium text-white">{campaign.name}</div>
+                        <div className="text-xs text-gray-400">{campaign.subject}</div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(campaign.status)}`}>
+                        {campaign.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                      <div>{campaign.fromName}</div>
+                      <div className="text-xs text-gray-500">{campaign.fromEmail}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                      {campaign.lists.length > 0 ? campaign.lists.join(', ') : 'All'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex justify-end gap-2">
+                        {campaign.status === 'sent' && (
+                          <button
+                            onClick={() => handleViewAnalytics(campaign)}
+                            className="text-brand-blue hover:text-brand-blue-light min-w-[44px] min-h-[44px] inline-flex items-center justify-center"
+                            title="View analytics"
+                          >
+                            <BarChart3 className="h-4 w-4" />
+                          </button>
+                        )}
+                        {campaign.status === 'draft' && (
+                          <button
+                            onClick={() => handleSendCampaign(campaign.id)}
+                            className="text-green-400 hover:text-green-300 min-w-[44px] min-h-[44px] inline-flex items-center justify-center"
+                            title="Send campaign"
+                          >
+                            <Send className="h-4 w-4" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDeleteCampaign(campaign.id)}
+                          className="text-red-400 hover:text-red-300 min-w-[44px] min-h-[44px] inline-flex items-center justify-center"
+                          title="Delete campaign"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {filteredCampaigns.length === 0 && (
+              <div className="text-center py-12 text-gray-400">
+                No campaigns found
+              </div>
+            )}
+          </div>
+
+          {/* Mobile card view */}
+          <div className="block md:hidden space-y-3">
+            {filteredCampaigns.length === 0 ? (
+              <div className="text-center py-12 text-gray-400 bg-gray-800 rounded-lg border border-gray-700">
+                No campaigns found
+              </div>
+            ) : (
+              filteredCampaigns.map((campaign) => (
+                <div key={campaign.id} className="bg-gray-800 rounded-lg border border-gray-700 p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-semibold text-white mb-1">{campaign.name}</h3>
+                      <p className="text-xs text-gray-400 line-clamp-2">{campaign.subject}</p>
                     </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(campaign.status)}`}>
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0 ${getStatusBadge(campaign.status)}`}>
                       {campaign.status}
                     </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                    <div>{campaign.fromName}</div>
-                    <div className="text-xs text-gray-500">{campaign.fromEmail}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                    {campaign.lists.length > 0 ? campaign.lists.join(', ') : 'All'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex justify-end gap-2">
-                      {campaign.status === 'sent' && (
-                        <button
-                          onClick={() => handleViewAnalytics(campaign)}
-                          className="text-brand-blue hover:text-brand-blue-light"
-                          title="View analytics"
-                        >
-                          <BarChart3 className="h-4 w-4" />
-                        </button>
-                      )}
-                      {campaign.status === 'draft' && (
-                        <button
-                          onClick={() => handleSendCampaign(campaign.id)}
-                          className="text-green-400 hover:text-green-300"
-                          title="Send campaign"
-                        >
-                          <Send className="h-4 w-4" />
-                        </button>
-                      )}
-                      <button
-                        onClick={() => handleDeleteCampaign(campaign.id)}
-                        className="text-red-400 hover:text-red-300"
-                        title="Delete campaign"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                  </div>
+                  
+                  <div className="space-y-2 text-xs">
+                    <div className="flex items-center gap-2 text-gray-300">
+                      <Mail className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                      <span className="truncate">{campaign.fromName} ({campaign.fromEmail})</span>
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {filteredCampaigns.length === 0 && (
-            <div className="text-center py-12 text-gray-400">
-              No campaigns found
-            </div>
-          )}
-        </div>
+                    {campaign.lists.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {campaign.lists.map((list, idx) => (
+                          <span key={idx} className="inline-flex items-center px-2 py-1 bg-gray-700 text-gray-300 rounded text-xs">
+                            {list}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex gap-2 pt-2 border-t border-gray-700">
+                    {campaign.status === 'sent' && (
+                      <button
+                        onClick={() => handleViewAnalytics(campaign)}
+                        className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors min-h-[44px] text-sm font-medium"
+                      >
+                        <BarChart3 className="h-4 w-4" />
+                        <span>Analytics</span>
+                      </button>
+                    )}
+                    {campaign.status === 'draft' && (
+                      <button
+                        onClick={() => handleSendCampaign(campaign.id)}
+                        className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2.5 bg-green-600 hover:bg-green-500 text-white rounded-lg transition-colors min-h-[44px] text-sm font-medium"
+                      >
+                        <Send className="h-4 w-4" />
+                        <span>Send</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDeleteCampaign(campaign.id)}
+                      className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors min-h-[44px] text-sm font-medium"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      <span>Delete</span>
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </>
       )}
 
       {showAnalyticsModal && selectedCampaign && (

@@ -43,6 +43,7 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     checkAuth();
@@ -165,12 +166,26 @@ const App: React.FC = () => {
     return <LoginPage onLogin={handleLogin} />;
   }
 
+  const handleNavigate = (page: PageType) => {
+    setCurrentPage(page);
+    setMobileMenuOpen(false); // Close mobile menu on navigation
+  };
+
   return (
     <div className="flex h-screen bg-gray-900 text-white overflow-hidden">
-      <Sidebar currentPage={currentPage} onNavigate={setCurrentPage} />
+      <Sidebar 
+        currentPage={currentPage} 
+        onNavigate={handleNavigate}
+        mobileMenuOpen={mobileMenuOpen}
+        onCloseMobileMenu={() => setMobileMenuOpen(false)}
+      />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Header user={user} onLogout={handleLogout} />
-        <main className="flex-1 p-8 overflow-y-auto">
+        <Header 
+          user={user} 
+          onLogout={handleLogout}
+          onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)}
+        />
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
           {renderPage()}
         </main>
       </div>

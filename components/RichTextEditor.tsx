@@ -218,7 +218,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className={`p-2 rounded hover:bg-gray-700 transition-colors ${
+      className={`p-2 sm:p-2.5 rounded hover:bg-gray-700 transition-colors min-w-[36px] min-h-[36px] sm:min-w-[40px] sm:min-h-[40px] inline-flex items-center justify-center ${
         active ? 'bg-gray-700 text-blue-400' : 'text-gray-300'
       } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
       type="button"
@@ -230,9 +230,9 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   return (
     <div className="border border-gray-700 rounded-lg bg-gray-800 overflow-hidden">
       {/* Toolbar */}
-      <div className="flex flex-wrap gap-1 p-2 border-b border-gray-700 bg-gray-850">
+      <div className="flex flex-wrap gap-1 sm:gap-1.5 p-2 sm:p-3 border-b border-gray-700 bg-gray-850">
         {/* Headings */}
-        <div className="flex gap-1 border-r border-gray-700 pr-2">
+        <div className="flex gap-1 border-r border-gray-700 pr-1.5 sm:pr-2 mr-0.5 sm:mr-1">
           <ToolbarButton
             onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
             active={editor.isActive('heading', { level: 1 })}
@@ -257,7 +257,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         </div>
 
         {/* Text Formatting */}
-        <div className="flex gap-1 border-r border-gray-700 pr-2">
+        <div className="flex gap-1 border-r border-gray-700 pr-1.5 sm:pr-2 mr-0.5 sm:mr-1">
           <ToolbarButton
             onClick={() => editor.chain().focus().toggleBold().run()}
             active={editor.isActive('bold')}
@@ -289,7 +289,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         </div>
 
         {/* Text Alignment */}
-        <div className="flex gap-1 border-r border-gray-700 pr-2">
+        <div className="flex gap-1 border-r border-gray-700 pr-1.5 sm:pr-2 mr-0.5 sm:mr-1">
           <ToolbarButton
             onClick={() => editor.chain().focus().setTextAlign('left').run()}
             active={editor.isActive({ textAlign: 'left' })}
@@ -314,7 +314,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         </div>
 
         {/* Lists */}
-        <div className="flex gap-1 border-r border-gray-700 pr-2">
+        <div className="flex gap-1 border-r border-gray-700 pr-1.5 sm:pr-2 mr-0.5 sm:mr-1">
           <ToolbarButton
             onClick={() => editor.chain().focus().toggleBulletList().run()}
             active={editor.isActive('bulletList')}
@@ -332,7 +332,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         </div>
 
         {/* Links, Images & Colors */}
-        <div className="flex gap-1 border-r border-gray-700 pr-2">
+        <div className="flex gap-1 border-r border-gray-700 pr-1.5 sm:pr-2 mr-0.5 sm:mr-1">
           <ToolbarButton
             onClick={setLink}
             active={editor.isActive('link')}
@@ -405,7 +405,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         </div>
 
         {/* Undo/Redo */}
-        <div className="flex gap-1 border-r border-gray-700 pr-2">
+        <div className="flex gap-1 border-r border-gray-700 pr-1.5 sm:pr-2 mr-0.5 sm:mr-1">
           <ToolbarButton
             onClick={() => editor.chain().focus().undo().run()}
             disabled={!editor.can().undo()}

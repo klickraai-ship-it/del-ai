@@ -1,18 +1,28 @@
 import React from 'react';
-import { Bell, Search, LogOut } from 'lucide-react';
+import { Bell, Search, LogOut, Menu } from 'lucide-react';
 
 interface HeaderProps {
   user: { name: string; email: string } | null;
   onLogout: () => void;
+  onToggleMobileMenu: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
+const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleMobileMenu }) => {
 
   return (
-    <header className="flex items-center justify-between h-20 bg-gradient-to-r from-gray-800 to-gray-900 border-b border-gray-700/50 px-4 sm:px-6 lg:px-8 shadow-lg backdrop-blur-xl">
-      <div>
-        <h2 className="text-xl font-semibold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">Deliverability Dashboard</h2>
-        <p className="text-sm text-gray-400 mt-0.5">7-day rolling performance overview</p>
+    <header className="flex items-center justify-between h-16 sm:h-20 bg-gradient-to-r from-gray-800 to-gray-900 border-b border-gray-700/50 px-4 sm:px-6 lg:px-8 shadow-lg backdrop-blur-xl">
+      <div className="flex items-center gap-3">
+        <button
+          onClick={onToggleMobileMenu}
+          className="md:hidden p-2 rounded-lg text-gray-400 hover:bg-gray-700/50 hover:text-white transition-all duration-200"
+          aria-label="Toggle menu"
+        >
+          <Menu className="h-6 w-6" />
+        </button>
+        <div>
+          <h2 className="text-lg sm:text-xl font-semibold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">Deliverability Dashboard</h2>
+          <p className="text-xs sm:text-sm text-gray-400 mt-0.5 hidden sm:block">7-day rolling performance overview</p>
+        </div>
       </div>
       <div className="flex items-center space-x-3">
         <div className="relative hidden sm:block">
