@@ -43,7 +43,7 @@ const ComplianceChecklist: React.FC<ComplianceChecklistProps> = ({ items }) => {
                   <div className="min-w-0 flex-1 pt-1.5">
                     <div className="flex justify-between items-center">
                       <p className="text-sm font-medium text-gray-200">{item.name}</p>
-                      <a href={item.fixLink} className="text-xs text-brand-blue-light hover:text-brand-blue flex items-center">
+                      <a href={item.fixLink} className="text-xs text-brand-blue-light hover:text-brand-blue min-h-[44px] flex items-center justify-center">
                           View fix <ExternalLink className="ml-1 h-3 w-3"/>
                       </a>
                     </div>

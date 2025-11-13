@@ -93,7 +93,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full pl-10 pr-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:bg-gray-700/70"
+                    className="w-full pl-10 pr-4 py-3 min-h-[44px] bg-gray-700/50 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:bg-gray-700/70"
                     placeholder="John Doe"
                     required={!isLogin}
                   />
@@ -110,7 +110,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                     type="text"
                     value={formData.companyName}
                     onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                    className="w-full pl-10 pr-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:bg-gray-700/70"
+                    className="w-full pl-10 pr-4 py-3 min-h-[44px] bg-gray-700/50 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:bg-gray-700/70"
                     placeholder="Acme Inc"
                   />
                 </div>
@@ -128,7 +128,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full pl-10 pr-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:bg-gray-700/70"
+                className="w-full pl-10 pr-4 py-3 min-h-[44px] bg-gray-700/50 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:bg-gray-700/70"
                 placeholder="you@example.com"
                 required
               />
@@ -145,7 +145,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 type="password"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="w-full pl-10 pr-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:bg-gray-700/70"
+                className="w-full pl-10 pr-4 py-3 min-h-[44px] bg-gray-700/50 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:bg-gray-700/70"
                 placeholder="••••••••"
                 required
               />
@@ -160,7 +160,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-500 hover:to-purple-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 hover:scale-[1.02] active:scale-[0.98]"
+            className="w-full py-3.5 min-h-[44px] bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-500 hover:to-purple-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center"
           >
             {loading ? (
               <span className="flex items-center justify-center">
@@ -182,7 +182,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
               setIsLogin(!isLogin);
               setError('');
             }}
-            className="text-blue-400 hover:text-blue-300 text-sm font-medium transition-colors duration-200 hover:underline"
+            className="text-blue-400 hover:text-blue-300 text-sm font-medium transition-colors duration-200 hover:underline min-h-[44px] inline-flex items-center justify-center px-4"
           >
             {isLogin
               ? "Don't have an account? Sign up"

@@ -218,7 +218,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className={`p-2 sm:p-2.5 rounded hover:bg-gray-700 transition-colors min-w-[36px] min-h-[36px] sm:min-w-[40px] sm:min-h-[40px] inline-flex items-center justify-center ${
+      className={`p-2 sm:p-2.5 rounded hover:bg-gray-700 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center ${
         active ? 'bg-gray-700 text-blue-400' : 'text-gray-300'
       } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
       type="button"
@@ -359,9 +359,9 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             </ToolbarButton>
             
             {showColorPicker && (
-              <div className="absolute top-full left-0 mt-1 p-3 bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-50 min-w-[240px]">
+              <div className="absolute top-full left-0 mt-1 p-3 bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-50 min-w-[280px]">
                 <div className="text-xs text-gray-400 mb-2 font-semibold">Quick Colors</div>
-                <div className="grid grid-cols-6 gap-2 mb-3">
+                <div className="grid grid-cols-4 gap-2 mb-3">
                   {[
                     '#000000', '#FFFFFF', '#e74c3c', '#3498db', '#2ecc71', '#f39c12',
                     '#9b59b6', '#1abc9c', '#34495e', '#e67e22', '#95a5a6', '#d35400'
@@ -369,7 +369,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                     <button
                       key={color}
                       onClick={() => setColor(color)}
-                      className="w-8 h-8 rounded border-2 border-gray-600 hover:scale-110 transition-transform hover:border-blue-400"
+                      className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded border-2 border-gray-600 hover:scale-105 transition-transform hover:border-blue-400"
                       style={{ backgroundColor: color }}
                       title={color}
                       type="button"
@@ -382,18 +382,18 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                     type="color"
                     value={customColor}
                     onChange={(e) => setCustomColor(e.target.value)}
-                    className="w-12 h-8 rounded border border-gray-600 cursor-pointer bg-gray-800"
+                    className="min-w-[44px] min-h-[44px] rounded border border-gray-600 cursor-pointer bg-gray-800"
                   />
                   <input
                     type="text"
                     value={customColor}
                     onChange={(e) => setCustomColor(e.target.value)}
-                    className="flex-1 px-2 py-1 bg-gray-800 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="flex-1 px-2 min-h-[44px] bg-gray-800 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
                     placeholder="#000000"
                   />
                   <button
                     onClick={applyCustomColor}
-                    className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-500 transition-colors"
+                    className="px-3 min-h-[44px] flex items-center justify-center bg-blue-600 text-white text-sm rounded hover:bg-blue-500 transition-colors"
                     type="button"
                   >
                     Apply

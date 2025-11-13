@@ -164,7 +164,7 @@ const SettingsPage: React.FC = () => {
               type="password"
               value={awsAccessKeyId}
               onChange={(e) => setAwsAccessKeyId(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-blue font-mono text-sm"
+              className="w-full px-3 py-3 min-h-[44px] bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-blue font-mono text-sm"
               placeholder={currentProvider ? "Leave blank to keep existing" : "AKIAIOSFODNN7EXAMPLE"}
             />
             <p className="text-xs text-gray-500 mt-1">
@@ -182,7 +182,7 @@ const SettingsPage: React.FC = () => {
               type="password"
               value={awsSecretAccessKey}
               onChange={(e) => setAwsSecretAccessKey(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-blue font-mono text-sm"
+              className="w-full px-3 py-3 min-h-[44px] bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-blue font-mono text-sm"
               placeholder={currentProvider ? "Leave blank to keep existing" : "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"}
             />
             <p className="text-xs text-gray-500 mt-1">
@@ -199,7 +199,7 @@ const SettingsPage: React.FC = () => {
             <select
               value={awsRegion}
               onChange={(e) => setAwsRegion(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-blue"
+              className="w-full px-3 py-3 min-h-[44px] bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-blue"
             >
               <option value="us-east-1">US East (N. Virginia) - us-east-1</option>
               <option value="us-east-2">US East (Ohio) - us-east-2</option>
@@ -216,15 +216,15 @@ const SettingsPage: React.FC = () => {
             <p className="text-xs text-gray-500 mt-1">The AWS region where your SES is configured</p>
           </div>
 
-          <div className="flex items-center">
+          <div className="flex items-center min-h-[44px]">
             <input
               type="checkbox"
               id="isActive"
               checked={isActive}
               onChange={(e) => setIsActive(e.target.checked)}
-              className="h-4 w-4 text-brand-blue bg-gray-700 border-gray-600 rounded focus:ring-brand-blue"
+              className="h-5 w-5 min-h-[44px] min-w-[44px] text-brand-blue bg-gray-700 border-gray-600 rounded focus:ring-brand-blue cursor-pointer"
             />
-            <label htmlFor="isActive" className="ml-2 text-sm text-gray-300">
+            <label htmlFor="isActive" className="ml-2 text-sm text-gray-300 cursor-pointer">
               Enable this integration (uncheck to temporarily disable without deleting credentials)
             </label>
           </div>
@@ -283,7 +283,7 @@ const SettingsPage: React.FC = () => {
           <button
             onClick={handleDeleteConfiguration}
             disabled={loading}
-            className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+            className="px-6 py-3 min-h-[44px] bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center"
           >
             {loading ? 'Deleting...' : 'Delete Configuration'}
           </button>
@@ -291,7 +291,7 @@ const SettingsPage: React.FC = () => {
         <button
           onClick={handleSaveConfiguration}
           disabled={loading || !awsRegion || (!currentProvider && (!awsAccessKeyId || !awsSecretAccessKey))}
-          className="flex items-center px-6 py-2 bg-brand-blue text-white rounded-lg hover:bg-brand-blue-light transition-colors disabled:opacity-50 ml-auto"
+          className="flex items-center justify-center px-6 py-3 min-h-[44px] bg-brand-blue text-white rounded-lg hover:bg-brand-blue-light transition-colors disabled:opacity-50 ml-auto"
         >
           <Save className="h-5 w-5 mr-2" />
           {loading ? 'Saving...' : currentProvider ? 'Update Configuration' : 'Save Configuration'}
