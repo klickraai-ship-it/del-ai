@@ -1,194 +1,331 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Key, Mail, Server } from 'lucide-react';
+import { Save, Key, AlertCircle, CheckCircle, Shield, Mail } from 'lucide-react';
+
+interface EmailProviderConfig {
+  provider: 'ses' | null;
+  isActive: boolean;
+  config: {
+    awsAccessKeyId?: string;
+    awsSecretAccessKey?: string;
+    awsRegion?: string;
+  };
+}
 
 const SettingsPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
-  const [smtpSettings, setSmtpSettings] = useState({
-    host: '',
-    port: '587',
-    username: '',
-    password: '',
-    secure: false
-  });
-  const [senderSettings, setSenderSettings] = useState({
-    defaultFromName: '',
-    defaultFromEmail: '',
-    defaultReplyTo: ''
-  });
-  const [saveStatus, setSaveStatus] = useState('');
+  const [fetching, setFetching] = useState(true);
+  const [currentProvider, setCurrentProvider] = useState<EmailProviderConfig | null>(null);
+  const [awsAccessKeyId, setAwsAccessKeyId] = useState('');
+  const [awsSecretAccessKey, setAwsSecretAccessKey] = useState('');
+  const [awsRegion, setAwsRegion] = useState('us-east-1');
+  const [isActive, setIsActive] = useState(true);
+  const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
   useEffect(() => {
-    fetchSettings();
+    fetchEmailProvider();
   }, []);
 
-  const fetchSettings = async () => {
+  const fetchEmailProvider = async () => {
+    setFetching(true);
     try {
-      const response = await fetch('/api/settings');
-      const data = await response.json();
+      const response = await fetch('/api/settings/email-provider', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
       
-      if (data.smtp) {
-        setSmtpSettings(data.smtp);
-      }
-      if (data.sender) {
-        setSenderSettings(data.sender);
+      if (response.ok) {
+        const data = await response.json();
+        setCurrentProvider(data);
+        
+        if (data && data.config) {
+          setAwsRegion(data.config.awsRegion || 'us-east-1');
+          setIsActive(data.isActive ?? true);
+        }
       }
     } catch (error) {
-      console.error('Error fetching settings:', error);
+      console.error('Error fetching email provider:', error);
+    } finally {
+      setFetching(false);
     }
   };
 
-  const handleSaveSettings = async () => {
+  const handleSaveConfiguration = async () => {
     setLoading(true);
-    setSaveStatus('');
+    setSaveStatus(null);
     
     try {
-      await fetch('/api/settings/smtp', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: smtpSettings })
+      // Build config object - only include keys if they're provided
+      // This allows users to update region/active status without re-entering credentials
+      const config: any = {
+        awsRegion
+      };
+      
+      // Only include keys if they're provided (required for new, optional for updates)
+      if (awsAccessKeyId) {
+        config.awsAccessKeyId = awsAccessKeyId;
+      }
+      if (awsSecretAccessKey) {
+        config.awsSecretAccessKey = awsSecretAccessKey;
+      }
+      
+      const response = await fetch('/api/settings/email-provider', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          provider: 'ses',
+          isActive,
+          config
+        })
       });
       
-      await fetch('/api/settings/sender', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: senderSettings })
-      });
+      const data = await response.json();
       
-      setSaveStatus('Settings saved successfully!');
-      setTimeout(() => setSaveStatus(''), 3000);
+      if (response.ok) {
+        setSaveStatus({ type: 'success', message: data.message || 'Email provider configured successfully!' });
+        setAwsAccessKeyId('');
+        setAwsSecretAccessKey('');
+        await fetchEmailProvider();
+        setTimeout(() => setSaveStatus(null), 5000);
+      } else {
+        setSaveStatus({ type: 'error', message: data.message || 'Failed to save configuration' });
+      }
     } catch (error) {
-      console.error('Error saving settings:', error);
-      setSaveStatus('Failed to save settings');
+      console.error('Error saving configuration:', error);
+      setSaveStatus({ type: 'error', message: 'Network error. Please try again.' });
     } finally {
       setLoading(false);
     }
   };
 
+  const handleDeleteConfiguration = async () => {
+    if (!confirm('Are you sure you want to delete your email provider configuration? This will prevent you from sending campaigns until you reconfigure.')) {
+      return;
+    }
+    
+    setLoading(true);
+    setSaveStatus(null);
+    
+    try {
+      const response = await fetch('/api/settings/email-provider', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (response.ok) {
+        setSaveStatus({ type: 'success', message: 'Email provider configuration deleted successfully.' });
+        setCurrentProvider(null);
+        setAwsAccessKeyId('');
+        setAwsSecretAccessKey('');
+        setAwsRegion('us-east-1');
+        setIsActive(true);
+        setTimeout(() => setSaveStatus(null), 5000);
+      } else {
+        const data = await response.json();
+        setSaveStatus({ type: 'error', message: data.message || 'Failed to delete configuration' });
+      }
+    } catch (error) {
+      console.error('Error deleting configuration:', error);
+      setSaveStatus({ type: 'error', message: 'Network error. Please try again.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (fetching) {
+    return (
+      <div className="flex justify-center items-center h-full">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-brand-blue"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Settings</h1>
-        <p className="text-gray-400 mt-1">Configure your email sending settings</p>
+        <h1 className="text-2xl font-bold text-white">Email Integration Settings</h1>
+        <p className="text-gray-400 mt-1">Configure your AWS SES credentials for sending campaigns</p>
       </div>
 
-      <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
-        <div className="flex items-center mb-4">
-          <Server className="h-5 w-5 text-brand-blue mr-2" />
-          <h2 className="text-lg font-semibold text-white">SMTP Configuration</h2>
-        </div>
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">SMTP Host</label>
-              <input
-                type="text"
-                value={smtpSettings.host}
-                onChange={(e) => setSmtpSettings({ ...smtpSettings, host: e.target.value })}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-blue"
-                placeholder="smtp.example.com"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Port</label>
-              <input
-                type="text"
-                value={smtpSettings.port}
-                onChange={(e) => setSmtpSettings({ ...smtpSettings, port: e.target.value })}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-blue"
-                placeholder="587"
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Username</label>
-              <input
-                type="text"
-                value={smtpSettings.username}
-                onChange={(e) => setSmtpSettings({ ...smtpSettings, username: e.target.value })}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-blue"
-                placeholder="your-username"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Password</label>
-              <input
-                type="password"
-                value={smtpSettings.password}
-                onChange={(e) => setSmtpSettings({ ...smtpSettings, password: e.target.value })}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-blue"
-                placeholder="••••••••"
-              />
-            </div>
-          </div>
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="secure"
-              checked={smtpSettings.secure}
-              onChange={(e) => setSmtpSettings({ ...smtpSettings, secure: e.target.checked })}
-              className="h-4 w-4 text-brand-blue bg-gray-700 border-gray-600 rounded focus:ring-brand-blue"
-            />
-            <label htmlFor="secure" className="ml-2 text-sm text-gray-300">
-              Use secure connection (TLS/SSL)
-            </label>
+      {/* Current Status Banner */}
+      {currentProvider ? (
+        <div className="bg-green-900/20 border border-green-700 rounded-lg p-4 flex items-start">
+          <CheckCircle className="h-5 w-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
+          <div className="flex-1">
+            <h3 className="text-green-400 font-semibold">Email Provider Configured</h3>
+            <p className="text-green-300 text-sm mt-1">
+              AWS SES is configured and {currentProvider.isActive ? 'active' : 'inactive'}. 
+              Region: <span className="font-mono">{currentProvider.config.awsRegion}</span>
+            </p>
           </div>
         </div>
-      </div>
-
-      <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
-        <div className="flex items-center mb-4">
-          <Mail className="h-5 w-5 text-brand-blue mr-2" />
-          <h2 className="text-lg font-semibold text-white">Default Sender Settings</h2>
-        </div>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Default From Name</label>
-            <input
-              type="text"
-              value={senderSettings.defaultFromName}
-              onChange={(e) => setSenderSettings({ ...senderSettings, defaultFromName: e.target.value })}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-blue"
-              placeholder="Your Company Name"
-            />
+      ) : (
+        <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-4 flex items-start">
+          <AlertCircle className="h-5 w-5 text-yellow-500 mr-3 mt-0.5 flex-shrink-0" />
+          <div className="flex-1">
+            <h3 className="text-yellow-400 font-semibold">Email Provider Not Configured</h3>
+            <p className="text-yellow-300 text-sm mt-1">
+              You must configure AWS SES credentials before you can send campaigns. Configure your credentials below.
+            </p>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Default From Email</label>
-            <input
-              type="email"
-              value={senderSettings.defaultFromEmail}
-              onChange={(e) => setSenderSettings({ ...senderSettings, defaultFromEmail: e.target.value })}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-blue"
-              placeholder="hello@example.com"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Default Reply-To Email</label>
-            <input
-              type="email"
-              value={senderSettings.defaultReplyTo}
-              onChange={(e) => setSenderSettings({ ...senderSettings, defaultReplyTo: e.target.value })}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-blue"
-              placeholder="support@example.com"
-            />
-          </div>
-        </div>
-      </div>
-
-      {saveStatus && (
-        <div className={`p-4 rounded-lg ${saveStatus.includes('success') ? 'bg-green-900 text-green-200' : 'bg-red-900 text-red-200'}`}>
-          {saveStatus}
         </div>
       )}
 
-      <div className="flex justify-end">
+      {/* AWS SES Configuration Form */}
+      <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
+        <div className="flex items-center mb-4">
+          <Shield className="h-5 w-5 text-brand-blue mr-2" />
+          <div>
+            <h2 className="text-lg font-semibold text-white">AWS SES Configuration</h2>
+            <p className="text-sm text-gray-400">Only AWS SES is supported for multi-tenant email delivery</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">
+              AWS Access Key ID {!currentProvider && <span className="text-red-500">*</span>}
+            </label>
+            <input
+              type="password"
+              value={awsAccessKeyId}
+              onChange={(e) => setAwsAccessKeyId(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-blue font-mono text-sm"
+              placeholder={currentProvider ? "Leave blank to keep existing" : "AKIAIOSFODNN7EXAMPLE"}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              {currentProvider 
+                ? "Leave blank to keep your existing access key" 
+                : "Your AWS IAM access key with SES permissions"}
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">
+              AWS Secret Access Key {!currentProvider && <span className="text-red-500">*</span>}
+            </label>
+            <input
+              type="password"
+              value={awsSecretAccessKey}
+              onChange={(e) => setAwsSecretAccessKey(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-blue font-mono text-sm"
+              placeholder={currentProvider ? "Leave blank to keep existing" : "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              {currentProvider 
+                ? "Leave blank to keep your existing secret key" 
+                : "Your AWS secret key (stored securely)"}
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">
+              AWS Region <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={awsRegion}
+              onChange={(e) => setAwsRegion(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-blue"
+            >
+              <option value="us-east-1">US East (N. Virginia) - us-east-1</option>
+              <option value="us-east-2">US East (Ohio) - us-east-2</option>
+              <option value="us-west-1">US West (N. California) - us-west-1</option>
+              <option value="us-west-2">US West (Oregon) - us-west-2</option>
+              <option value="eu-west-1">EU (Ireland) - eu-west-1</option>
+              <option value="eu-west-2">EU (London) - eu-west-2</option>
+              <option value="eu-central-1">EU (Frankfurt) - eu-central-1</option>
+              <option value="ap-south-1">Asia Pacific (Mumbai) - ap-south-1</option>
+              <option value="ap-northeast-1">Asia Pacific (Tokyo) - ap-northeast-1</option>
+              <option value="ap-southeast-1">Asia Pacific (Singapore) - ap-southeast-1</option>
+              <option value="ap-southeast-2">Asia Pacific (Sydney) - ap-southeast-2</option>
+            </select>
+            <p className="text-xs text-gray-500 mt-1">The AWS region where your SES is configured</p>
+          </div>
+
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="isActive"
+              checked={isActive}
+              onChange={(e) => setIsActive(e.target.checked)}
+              className="h-4 w-4 text-brand-blue bg-gray-700 border-gray-600 rounded focus:ring-brand-blue"
+            />
+            <label htmlFor="isActive" className="ml-2 text-sm text-gray-300">
+              Enable this integration (uncheck to temporarily disable without deleting credentials)
+            </label>
+          </div>
+        </div>
+
+        {/* Security Notice */}
+        <div className="mt-6 bg-blue-900/20 border border-blue-700 rounded-lg p-4">
+          <div className="flex items-start">
+            <Key className="h-5 w-5 text-blue-400 mr-3 mt-0.5 flex-shrink-0" />
+            <div>
+              <h4 className="text-blue-400 font-semibold text-sm">Security & Privacy</h4>
+              <ul className="text-blue-300 text-xs mt-2 space-y-1">
+                <li>• Your AWS credentials are stored per-user and never shared across accounts</li>
+                <li>• No fallback to global credentials - true multi-tenant isolation</li>
+                <li>• Credentials are encrypted at rest (production deployment required)</li>
+                <li>• Only you can access your AWS SES integration</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Setup Instructions */}
+        <div className="mt-4 bg-gray-900/50 border border-gray-600 rounded-lg p-4">
+          <h4 className="text-gray-300 font-semibold text-sm mb-2">How to get AWS SES credentials:</h4>
+          <ol className="text-gray-400 text-xs space-y-1 list-decimal list-inside">
+            <li>Log in to your AWS Console and navigate to IAM</li>
+            <li>Create a new IAM user with programmatic access</li>
+            <li>Attach the <code className="bg-gray-800 px-1 py-0.5 rounded">AmazonSESFullAccess</code> policy</li>
+            <li>Copy the Access Key ID and Secret Access Key</li>
+            <li>Verify your sending domains/emails in AWS SES</li>
+          </ol>
+        </div>
+      </div>
+
+      {/* Status Messages */}
+      {saveStatus && (
+        <div className={`p-4 rounded-lg border ${
+          saveStatus.type === 'success' 
+            ? 'bg-green-900/20 border-green-700 text-green-300' 
+            : 'bg-red-900/20 border-red-700 text-red-300'
+        }`}>
+          <div className="flex items-center">
+            {saveStatus.type === 'success' ? (
+              <CheckCircle className="h-5 w-5 mr-2" />
+            ) : (
+              <AlertCircle className="h-5 w-5 mr-2" />
+            )}
+            {saveStatus.message}
+          </div>
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <div className="flex justify-between">
+        {currentProvider && (
+          <button
+            onClick={handleDeleteConfiguration}
+            disabled={loading}
+            className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+          >
+            {loading ? 'Deleting...' : 'Delete Configuration'}
+          </button>
+        )}
         <button
-          onClick={handleSaveSettings}
-          disabled={loading}
-          className="flex items-center px-6 py-2 bg-brand-blue text-white rounded-lg hover:bg-brand-blue-light transition-colors disabled:opacity-50"
+          onClick={handleSaveConfiguration}
+          disabled={loading || !awsRegion || (!currentProvider && (!awsAccessKeyId || !awsSecretAccessKey))}
+          className="flex items-center px-6 py-2 bg-brand-blue text-white rounded-lg hover:bg-brand-blue-light transition-colors disabled:opacity-50 ml-auto"
         >
           <Save className="h-5 w-5 mr-2" />
-          {loading ? 'Saving...' : 'Save Settings'}
+          {loading ? 'Saving...' : currentProvider ? 'Update Configuration' : 'Save Configuration'}
         </button>
       </div>
     </div>

@@ -50,6 +50,11 @@ const App: React.FC = () => {
     setLoading(true);
     try {
       const response = await fetch('/api/dashboard');
+      if (!response.ok) {
+        console.warn('Dashboard API returned error:', response.status);
+        setData(generateMockData());
+        return;
+      }
       const dashboardData = await response.json();
       setData(dashboardData);
     } catch (error) {

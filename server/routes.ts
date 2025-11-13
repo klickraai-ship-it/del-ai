@@ -1427,29 +1427,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { provider, isActive, config } = req.body;
       const { emailProviderIntegrations, insertEmailProviderIntegrationSchema } = await import('./db');
       
-      // Validate input
+      // RUNTIME VALIDATION: ONLY AWS SES is supported for per-user credentials
+      // Check before Zod validation to provide friendlier error message
+      // Reject ALL non-SES providers regardless of config payload to prevent:
+      // 1. Creating integrations that will fail during email sending
+      // 2. Activating legacy/unsupported integrations
+      // 3. User confusion about supported providers
+      if (provider && provider !== 'ses') {
+        const providerName = String(provider).toUpperCase();
+        return res.status(400).json({
+          message: `${providerName} provider is not supported for per-user credentials. Only AWS SES is currently supported for multi-tenant email integration.`,
+          supportedProviders: ['ses'],
+          requestedProvider: provider,
+          reason: provider === 'resend' 
+            ? "Per-user Resend client instantiation not implemented" 
+            : `${providerName} integration not implemented`
+        });
+      }
+      
+      // Validate input (this will also enforce 'ses' via Zod schema)
       const validatedData = insertEmailProviderIntegrationSchema.parse({
         provider,
         isActive,
         config,
       });
-      
-      // RUNTIME VALIDATION: ONLY AWS SES is supported for per-user credentials
-      // Reject ALL non-SES providers regardless of config payload to prevent:
-      // 1. Creating integrations that will fail during email sending
-      // 2. Activating legacy/unsupported integrations
-      // 3. User confusion about supported providers
-      if (validatedData.provider !== 'ses') {
-        const providerName = validatedData.provider.toUpperCase();
-        return res.status(400).json({
-          message: `${providerName} provider is not supported for per-user credentials. Only AWS SES is currently supported for multi-tenant email integration.`,
-          supportedProviders: ['ses'],
-          requestedProvider: validatedData.provider,
-          reason: validatedData.provider === 'resend' 
-            ? "Per-user Resend client instantiation not implemented" 
-            : `${providerName} integration not implemented`
-        });
-      }
       
       // Check if integration already exists
       const [existing] = await db
@@ -1459,12 +1460,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (existing) {
         // Update existing integration
+        // Merge configs to preserve existing credentials if not provided in the update
+        const existingConfig = existing.config as any || {};
+        const newConfig = validatedData.config as any || {};
+        
+        const mergedConfig = {
+          awsAccessKeyId: newConfig.awsAccessKeyId || existingConfig.awsAccessKeyId,
+          awsSecretAccessKey: newConfig.awsSecretAccessKey || existingConfig.awsSecretAccessKey,
+          awsRegion: newConfig.awsRegion || existingConfig.awsRegion,
+        };
+        
         const [updated] = await db
           .update(emailProviderIntegrations)
           .set({
             provider: validatedData.provider,
             isActive: validatedData.isActive,
-            config: validatedData.config as any,
+            config: mergedConfig as any,
             updatedAt: new Date(),
           })
           .where(eq(emailProviderIntegrations.userId, userId))
