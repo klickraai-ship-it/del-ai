@@ -68,15 +68,21 @@ const App: React.FC = () => {
   const renderPage = () => {
     switch (currentPage) {
       case 'dashboard':
-        return loading ? (
-          <div className="flex justify-center items-center h-full">
-            <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-brand-blue"></div>
-          </div>
-        ) : data ? (
-          <Dashboard data={data} />
-        ) : (
-          <div className="text-center text-gray-400">Failed to load dashboard data.</div>
-        );
+        if (loading) {
+          return (
+            <div className="flex justify-center items-center h-full">
+              <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
+            </div>
+          );
+        }
+        if (!data) {
+          return (
+            <div className="text-center text-gray-400 p-8">
+              Failed to load dashboard data. Please refresh the page.
+            </div>
+          );
+        }
+        return <Dashboard data={data} />;
       case 'campaigns':
         return <CampaignsList />;
       case 'templates':
@@ -86,11 +92,14 @@ const App: React.FC = () => {
       case 'settings':
         return <SettingsPage />;
       default:
-        return data ? (
-          <Dashboard data={data} />
-        ) : (
-          <div className="text-center text-gray-400">Failed to load dashboard data.</div>
-        );
+        if (!data) {
+          return (
+            <div className="text-center text-gray-400 p-8">
+              Failed to load dashboard data. Please refresh the page.
+            </div>
+          );
+        }
+        return <Dashboard data={data} />;
     }
   };
 

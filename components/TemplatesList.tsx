@@ -33,9 +33,10 @@ const TemplatesList: React.FC = () => {
     try {
       const response = await fetch('/api/templates');
       const data = await response.json();
-      setTemplates(data);
+      setTemplates(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching templates:', error);
+      setTemplates([]);
     } finally {
       setLoading(false);
     }

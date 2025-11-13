@@ -26,7 +26,7 @@ const SubscribersList: React.FC = () => {
     try {
       const response = await fetch('/api/subscribers');
       const data = await response.json();
-      
+
       // Handle error responses or non-array data
       if (Array.isArray(data)) {
         setSubscribers(data);
@@ -52,7 +52,7 @@ const SubscribersList: React.FC = () => {
           lists: newSubscriber.lists.split(',').map(l => l.trim()).filter(Boolean)
         })
       });
-      
+
       if (response.ok) {
         setShowAddModal(false);
         setNewSubscriber({ email: '', firstName: '', lastName: '', lists: '' });
@@ -65,7 +65,7 @@ const SubscribersList: React.FC = () => {
 
   const handleDeleteSubscriber = async (id: string) => {
     if (!confirm('Are you sure you want to delete this subscriber?')) return;
-    
+
     try {
       await fetch(`/api/subscribers/${id}`, { method: 'DELETE' });
       fetchSubscribers();
