@@ -1,9 +1,5 @@
 import { SESClient, SendEmailCommand, SendEmailCommandInput } from '@aws-sdk/client-ses';
 
-const AWS_REGION = process.env.AWS_REGION || 'us-east-1';
-const AWS_ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID;
-const AWS_SECRET_ACCESS_KEY = process.env.AWS_SECRET_ACCESS_KEY;
-
 export interface SESEmailParams {
   to: string;
   from: string;
@@ -18,19 +14,24 @@ export class SESEmailService {
   private client: SESClient;
   private isConfigured: boolean;
 
-  constructor() {
-    this.isConfigured = !!(AWS_ACCESS_KEY_ID && AWS_SECRET_ACCESS_KEY);
+  constructor(accessKeyId?: string, secretAccessKey?: string, region?: string) {
+    // Support both constructor params and environment variables
+    const keyId = accessKeyId || process.env.AWS_ACCESS_KEY_ID;
+    const secretKey = secretAccessKey || process.env.AWS_SECRET_ACCESS_KEY;
+    const awsRegion = region || process.env.AWS_REGION || 'us-east-1';
+    
+    this.isConfigured = !!(keyId && secretKey);
     
     if (this.isConfigured) {
       this.client = new SESClient({
-        region: AWS_REGION,
+        region: awsRegion,
         credentials: {
-          accessKeyId: AWS_ACCESS_KEY_ID!,
-          secretAccessKey: AWS_SECRET_ACCESS_KEY!,
+          accessKeyId: keyId!,
+          secretAccessKey: secretKey!,
         },
       });
     } else {
-      console.warn('AWS SES not configured. Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables.');
+      console.warn('AWS SES not configured. Provide credentials to constructor or set environment variables.');
       this.client = null as any;
     }
   }

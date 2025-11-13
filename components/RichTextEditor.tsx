@@ -1,0 +1,256 @@
+import React from 'react';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Link from '@tiptap/extension-link';
+import TextAlign from '@tiptap/extension-text-align';
+import { TextStyle } from '@tiptap/extension-text-style';
+import { Color } from '@tiptap/extension-color';
+import Underline from '@tiptap/extension-underline';
+import { 
+  Bold, 
+  Italic, 
+  Underline as UnderlineIcon, 
+  AlignLeft, 
+  AlignCenter, 
+  AlignRight, 
+  Link as LinkIcon,
+  List,
+  ListOrdered,
+  Undo,
+  Redo,
+  Code
+} from 'lucide-react';
+
+interface RichTextEditorProps {
+  content: string;
+  onChange: (html: string) => void;
+  placeholder?: string;
+  minHeight?: string;
+}
+
+const RichTextEditor: React.FC<RichTextEditorProps> = ({ 
+  content, 
+  onChange, 
+  placeholder = 'Start typing your email content...',
+  minHeight = '300px'
+}) => {
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Link.configure({
+        openOnClick: false,
+        HTMLAttributes: {
+          class: 'text-blue-500 underline',
+        },
+      }),
+      TextAlign.configure({
+        types: ['heading', 'paragraph'],
+      }),
+      TextStyle,
+      Color,
+      Underline,
+    ],
+    content,
+    onUpdate: ({ editor }) => {
+      onChange(editor.getHTML());
+    },
+    editorProps: {
+      attributes: {
+        class: 'prose prose-invert max-w-none focus:outline-none min-h-[300px] px-4 py-3',
+      },
+    },
+  });
+
+  if (!editor) {
+    return <div>Loading editor...</div>;
+  }
+
+  const setLink = () => {
+    const url = window.prompt('Enter URL:');
+    
+    if (url === null) {
+      return;
+    }
+
+    if (url === '') {
+      editor.chain().focus().extendMarkRange('link').unsetLink().run();
+      return;
+    }
+
+    editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+  };
+
+  const setColor = (color: string) => {
+    editor.chain().focus().setColor(color).run();
+  };
+
+  const ToolbarButton = ({ 
+    onClick, 
+    active, 
+    disabled, 
+    children, 
+    title 
+  }: { 
+    onClick: () => void; 
+    active?: boolean; 
+    disabled?: boolean; 
+    children: React.ReactNode;
+    title?: string;
+  }) => (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      className={`p-2 rounded hover:bg-gray-700 transition-colors ${
+        active ? 'bg-gray-700 text-blue-400' : 'text-gray-300'
+      } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+      type="button"
+    >
+      {children}
+    </button>
+  );
+
+  return (
+    <div className="border border-gray-700 rounded-lg bg-gray-800 overflow-hidden">
+      {/* Toolbar */}
+      <div className="flex flex-wrap gap-1 p-2 border-b border-gray-700 bg-gray-850">
+        {/* Text Formatting */}
+        <div className="flex gap-1 border-r border-gray-700 pr-2">
+          <ToolbarButton
+            onClick={() => editor.chain().focus().toggleBold().run()}
+            active={editor.isActive('bold')}
+            title="Bold"
+          >
+            <Bold className="h-4 w-4" />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().toggleItalic().run()}
+            active={editor.isActive('italic')}
+            title="Italic"
+          >
+            <Italic className="h-4 w-4" />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().toggleUnderline().run()}
+            active={editor.isActive('underline')}
+            title="Underline"
+          >
+            <UnderlineIcon className="h-4 w-4" />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().toggleCode().run()}
+            active={editor.isActive('code')}
+            title="Code"
+          >
+            <Code className="h-4 w-4" />
+          </ToolbarButton>
+        </div>
+
+        {/* Text Alignment */}
+        <div className="flex gap-1 border-r border-gray-700 pr-2">
+          <ToolbarButton
+            onClick={() => editor.chain().focus().setTextAlign('left').run()}
+            active={editor.isActive({ textAlign: 'left' })}
+            title="Align Left"
+          >
+            <AlignLeft className="h-4 w-4" />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().setTextAlign('center').run()}
+            active={editor.isActive({ textAlign: 'center' })}
+            title="Align Center"
+          >
+            <AlignCenter className="h-4 w-4" />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().setTextAlign('right').run()}
+            active={editor.isActive({ textAlign: 'right' })}
+            title="Align Right"
+          >
+            <AlignRight className="h-4 w-4" />
+          </ToolbarButton>
+        </div>
+
+        {/* Lists */}
+        <div className="flex gap-1 border-r border-gray-700 pr-2">
+          <ToolbarButton
+            onClick={() => editor.chain().focus().toggleBulletList().run()}
+            active={editor.isActive('bulletList')}
+            title="Bullet List"
+          >
+            <List className="h-4 w-4" />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().toggleOrderedList().run()}
+            active={editor.isActive('orderedList')}
+            title="Numbered List"
+          >
+            <ListOrdered className="h-4 w-4" />
+          </ToolbarButton>
+        </div>
+
+        {/* Links & Colors */}
+        <div className="flex gap-1 border-r border-gray-700 pr-2">
+          <ToolbarButton
+            onClick={setLink}
+            active={editor.isActive('link')}
+            title="Insert Link"
+          >
+            <LinkIcon className="h-4 w-4" />
+          </ToolbarButton>
+
+          {/* Color Picker */}
+          <div className="flex items-center gap-1">
+            {['#000000', '#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6'].map((color) => (
+              <button
+                key={color}
+                onClick={() => setColor(color)}
+                className="w-6 h-6 rounded border border-gray-600 hover:scale-110 transition-transform"
+                style={{ backgroundColor: color }}
+                title={`Set color to ${color}`}
+                type="button"
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Undo/Redo */}
+        <div className="flex gap-1">
+          <ToolbarButton
+            onClick={() => editor.chain().focus().undo().run()}
+            disabled={!editor.can().undo()}
+            title="Undo"
+          >
+            <Undo className="h-4 w-4" />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().redo().run()}
+            disabled={!editor.can().redo()}
+            title="Redo"
+          >
+            <Redo className="h-4 w-4" />
+          </ToolbarButton>
+        </div>
+      </div>
+
+      {/* Editor Content */}
+      <EditorContent 
+        editor={editor} 
+        className="text-gray-100"
+        style={{ minHeight }}
+      />
+
+      {/* Merge Tags Helper */}
+      <div className="p-2 border-t border-gray-700 bg-gray-850 text-xs text-gray-400">
+        <span className="font-semibold">Available merge tags:</span> 
+        <code className="mx-1">{'{{first_name}}'}</code>
+        <code className="mx-1">{'{{last_name}}'}</code>
+        <code className="mx-1">{'{{email}}'}</code>
+        <code className="mx-1">{'{{unsubscribe_url}}'}</code>
+        <code className="mx-1">{'{{web_version_url}}'}</code>
+      </div>
+    </div>
+  );
+};
+
+export default RichTextEditor;

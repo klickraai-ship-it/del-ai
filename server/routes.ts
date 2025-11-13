@@ -26,6 +26,8 @@ import { eq, desc, inArray, and, sql } from "drizzle-orm";
 import { setupTrackingRoutes } from "./tracking";
 import bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
+import { subscribeRateLimiter, unsubscribeRateLimiter, publicEndpointLimiter } from "./rateLimiter";
+import { emailService } from "./emailProvider";
 
 // Middleware to validate session and extract userId
 async function requireAuth(req: any, res: any, next: any) {
@@ -585,6 +587,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/campaigns", requireAuth, async (req, res) => {
     try {
       const userId = (req as any).userId;
+      
+      // PREFLIGHT CHECK: Ensure SES is configured before allowing campaign creation
+      const isConfigured = await emailService.isConfigured(userId);
+      if (!isConfigured) {
+        return res.status(400).json({
+          message: "Email provider not configured. Please configure AWS SES in Settings > Email Integration before creating campaigns.",
+          requiresConfiguration: true,
+          action: "configure_ses"
+        });
+      }
+      
       const validatedData = insertCampaignSchema.parse(req.body);
       
       const campaignData: any = {
@@ -676,86 +689,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting campaign:", error);
       res.status(500).json({ message: "Failed to delete campaign" });
-    }
-  });
-  
-  // Send campaign (mark as sending and create subscriber records)
-  app.post("/api/campaigns/:id/send", requireAuth, async (req, res) => {
-    try {
-      const userId = (req as any).userId;
-      const [campaign] = await db
-        .select()
-        .from(campaigns)
-        .where(and(
-          eq(campaigns.id, req.params.id),
-          eq(campaigns.userId, userId)
-        ));
-      
-      if (!campaign) {
-        return res.status(404).json({ message: "Campaign not found" });
-      }
-      
-      if (campaign.status === 'sent' || campaign.status === 'sending') {
-        return res.status(400).json({ message: "Campaign already sent or sending" });
-      }
-      
-      // Get subscribers matching the campaign lists (only for this user)
-      const eligibleSubscribers = await db
-        .select()
-        .from(subscribers)
-        .where(and(
-          eq(subscribers.status, 'active'),
-          eq(subscribers.userId, userId)
-        ));
-      
-      // Filter by lists
-      const targetSubscribers = eligibleSubscribers.filter(sub =>
-        campaign.lists.length === 0 || campaign.lists.some(list => sub.lists.includes(list))
-      );
-      
-      // Create campaign_subscribers records
-      if (targetSubscribers.length > 0) {
-        const subscriberRecords = targetSubscribers.map(sub => ({
-          userId,
-          campaignId: campaign.id,
-          subscriberId: sub.id,
-          status: 'pending' as const,
-        }));
-        
-        await db.insert(campaignSubscribers).values(subscriberRecords);
-      }
-      
-      // Update campaign status
-      const [updated] = await db
-        .update(campaigns)
-        .set({
-          status: 'sending',
-          sentAt: new Date(),
-        })
-        .where(and(
-          eq(campaigns.id, req.params.id),
-          eq(campaigns.userId, userId)
-        ))
-        .returning();
-      
-      // Update analytics
-      await db
-        .update(campaignAnalytics)
-        .set({
-          totalSubscribers: targetSubscribers.length,
-        })
-        .where(and(
-          eq(campaignAnalytics.campaignId, req.params.id),
-          eq(campaignAnalytics.userId, userId)
-        ));
-      
-      res.json({
-        ...updated,
-        message: `Campaign queued for sending to ${targetSubscribers.length} subscribers`,
-      });
-    } catch (error) {
-      console.error("Error sending campaign:", error);
-      res.status(500).json({ message: "Failed to send campaign" });
     }
   });
   
@@ -880,6 +813,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const campaignId = req.params.id;
       const userId = (req as any).userId;
       
+      // PREFLIGHT CHECK: Ensure SES is configured before allowing email sending
+      const isConfigured = await emailService.isConfigured(userId);
+      if (!isConfigured) {
+        return res.status(400).json({
+          message: "Email provider not configured. Please configure AWS SES in Settings > Email Integration before sending campaigns.",
+          requiresConfiguration: true,
+          action: "configure_ses"
+        });
+      }
+      
       const [campaign] = await db
         .select()
         .from(campaigns)
@@ -971,8 +914,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           let sentCount = 0;
           let failedCount = 0;
           
-          const { emailService } = await import('./emailProvider');
-          
           for (const subscriber of targetSubscribers) {
             try {
               const processedContentBase = {
@@ -998,6 +939,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 subject: processedContent.subject,
                 html: processedContent.htmlContent,
                 text: processedContent.textContent,
+                userId: campaign.userId,
               });
               
               await db.execute(sql`
@@ -1200,7 +1142,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ========== PUBLIC SUBSCRIBER API (No Auth Required) ==========
   
   // Public subscribe endpoint
-  app.post("/api/public/subscribe", async (req, res) => {
+  app.post("/api/public/subscribe", subscribeRateLimiter, async (req, res) => {
     try {
       const { email, firstName, lastName, lists } = req.body;
       
@@ -1266,7 +1208,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Unsubscribe endpoint (token-based, no auth required)
-  app.get("/api/public/unsubscribe/:token", async (req, res) => {
+  app.get("/api/public/unsubscribe/:token", unsubscribeRateLimiter, async (req, res) => {
     try {
       const { token } = req.params;
       
@@ -1344,7 +1286,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // View email in browser (web version)
-  app.get("/api/public/view/:token", async (req, res) => {
+  app.get("/api/public/view/:token", publicEndpointLimiter, async (req, res) => {
     try {
       const { token } = req.params;
       
@@ -1430,6 +1372,139 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error in web version:", error);
       res.status(500).send("<h1>Error loading email</h1>");
+    }
+  });
+
+  // ========== EMAIL PROVIDER INTEGRATIONS API ==========
+  
+  // Get user's email provider integration
+  app.get("/api/settings/email-provider", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).userId;
+      const { emailProviderIntegrations } = await import('./db');
+      
+      const [integration] = await db
+        .select()
+        .from(emailProviderIntegrations)
+        .where(eq(emailProviderIntegrations.userId, userId));
+      
+      if (!integration) {
+        // Return null provider to indicate unconfigured state (SES-only enforcement)
+        // UI should display "configure SES" message instead of showing Resend as default
+        return res.json({ 
+          provider: null, 
+          isActive: false, 
+          config: {},
+          requiresConfiguration: true,
+          message: "Email provider not configured. Please configure AWS SES to send emails."
+        });
+      }
+      
+      // Don't send sensitive credentials to frontend
+      const config = integration.config as any;
+      const safeConfig = {
+        ...config,
+        awsSecretAccessKey: config.awsSecretAccessKey ? '***HIDDEN***' : undefined,
+        apiKey: config.apiKey ? '***HIDDEN***' : undefined,
+        sendgridApiKey: config.sendgridApiKey ? '***HIDDEN***' : undefined,
+        mailgunApiKey: config.mailgunApiKey ? '***HIDDEN***' : undefined,
+      };
+      
+      res.json({
+        ...integration,
+        config: safeConfig,
+      });
+    } catch (error) {
+      console.error("Error fetching email provider integration:", error);
+      res.status(500).json({ message: "Failed to fetch integration" });
+    }
+  });
+  
+  // Create or update email provider integration
+  app.post("/api/settings/email-provider", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).userId;
+      const { provider, isActive, config } = req.body;
+      const { emailProviderIntegrations, insertEmailProviderIntegrationSchema } = await import('./db');
+      
+      // Validate input
+      const validatedData = insertEmailProviderIntegrationSchema.parse({
+        provider,
+        isActive,
+        config,
+      });
+      
+      // RUNTIME VALIDATION: ONLY AWS SES is supported for per-user credentials
+      // Reject ALL non-SES providers regardless of config payload to prevent:
+      // 1. Creating integrations that will fail during email sending
+      // 2. Activating legacy/unsupported integrations
+      // 3. User confusion about supported providers
+      if (validatedData.provider !== 'ses') {
+        const providerName = validatedData.provider.toUpperCase();
+        return res.status(400).json({
+          message: `${providerName} provider is not supported for per-user credentials. Only AWS SES is currently supported for multi-tenant email integration.`,
+          supportedProviders: ['ses'],
+          requestedProvider: validatedData.provider,
+          reason: validatedData.provider === 'resend' 
+            ? "Per-user Resend client instantiation not implemented" 
+            : `${providerName} integration not implemented`
+        });
+      }
+      
+      // Check if integration already exists
+      const [existing] = await db
+        .select()
+        .from(emailProviderIntegrations)
+        .where(eq(emailProviderIntegrations.userId, userId));
+      
+      if (existing) {
+        // Update existing integration
+        const [updated] = await db
+          .update(emailProviderIntegrations)
+          .set({
+            provider: validatedData.provider,
+            isActive: validatedData.isActive,
+            config: validatedData.config as any,
+            updatedAt: new Date(),
+          })
+          .where(eq(emailProviderIntegrations.userId, userId))
+          .returning();
+        
+        res.json({ message: "Integration updated successfully", integration: updated });
+      } else {
+        // Create new integration
+        const [created] = await db
+          .insert(emailProviderIntegrations)
+          .values({
+            userId,
+            provider: validatedData.provider,
+            isActive: validatedData.isActive,
+            config: validatedData.config as any,
+          })
+          .returning();
+        
+        res.json({ message: "Integration created successfully", integration: created });
+      }
+    } catch (error) {
+      console.error("Error saving email provider integration:", error);
+      res.status(500).json({ message: "Failed to save integration" });
+    }
+  });
+  
+  // Delete email provider integration
+  app.delete("/api/settings/email-provider", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).userId;
+      const { emailProviderIntegrations } = await import('./db');
+      
+      await db
+        .delete(emailProviderIntegrations)
+        .where(eq(emailProviderIntegrations.userId, userId));
+      
+      res.json({ message: "Integration deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting email provider integration:", error);
+      res.status(500).json({ message: "Failed to delete integration" });
     }
   });
 

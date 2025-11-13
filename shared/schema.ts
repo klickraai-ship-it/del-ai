@@ -92,12 +92,18 @@ export type InsertSetting = z.infer<typeof insertSettingSchema>;
 export type Setting = typeof settings.$inferSelect;
 
 // Email Provider Integrations table (per-user email provider credentials)
+// ⚠️ SECURITY WARNING: Credentials are currently stored in PLAINTEXT in JSONB
+// TODO PRODUCTION: Implement field-level encryption before deployment
+//   - Use AES-256-GCM or similar encryption algorithm
+//   - Store encryption key in secure key management service (KMS, HashiCorp Vault, etc.)
+//   - Encrypt credentials before insert/update, decrypt on select
+//   - Consider using pgcrypto extension or application-level encryption
 export const emailProviderIntegrations = pgTable("email_provider_integrations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().unique().references(() => users.id, { onDelete: 'cascade' }),
-  provider: text("provider").notNull().default('resend'), // 'resend' | 'ses' | 'sendgrid' | 'mailgun'
+  provider: text("provider").notNull().default('ses'), // CHANGED: Default to 'ses' (SES-only enforcement)
   isActive: boolean("is_active").notNull().default(true),
-  config: jsonb("config").notNull(), // Encrypted credentials and configuration
+  config: jsonb("config").notNull(), // ⚠️ PLAINTEXT! Should be encrypted in production
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => ({
@@ -105,19 +111,17 @@ export const emailProviderIntegrations = pgTable("email_provider_integrations", 
 }));
 
 export const insertEmailProviderIntegrationSchema = z.object({
-  provider: z.enum(['resend', 'ses', 'sendgrid', 'mailgun']).default('resend'),
+  provider: z.enum(['ses']).default('ses'), // SES-ONLY: Tightened Zod validation
   isActive: z.boolean().default(true),
   config: z.object({
-    // Resend config
-    apiKey: z.string().optional(),
-    fromEmail: z.string().email().optional(),
-    // AWS SES config
+    // AWS SES config (ONLY supported provider for per-user credentials)
     awsAccessKeyId: z.string().optional(),
     awsSecretAccessKey: z.string().optional(),
     awsRegion: z.string().optional(),
-    // SendGrid config
+    // Legacy fields kept for schema compatibility, but not used
+    apiKey: z.string().optional(),
+    fromEmail: z.string().email().optional(),
     sendgridApiKey: z.string().optional(),
-    // Mailgun config
     mailgunApiKey: z.string().optional(),
     mailgunDomain: z.string().optional(),
   }),
