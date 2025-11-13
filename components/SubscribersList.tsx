@@ -26,9 +26,17 @@ const SubscribersList: React.FC = () => {
     try {
       const response = await fetch('/api/subscribers');
       const data = await response.json();
-      setSubscribers(data);
+      
+      // Handle error responses or non-array data
+      if (Array.isArray(data)) {
+        setSubscribers(data);
+      } else {
+        console.error('Invalid response format:', data);
+        setSubscribers([]);
+      }
     } catch (error) {
       console.error('Error fetching subscribers:', error);
+      setSubscribers([]);
     } finally {
       setLoading(false);
     }

@@ -406,6 +406,41 @@ export const linkClicks = pgTable("link_clicks", {
 
 export type LinkClick = typeof linkClicks.$inferSelect;
 
+// Web Version Views tracking table - with composite FK for tenant isolation
+export const webVersionViews = pgTable("web_version_views", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  campaignId: varchar("campaign_id").notNull(),
+  subscriberId: varchar("subscriber_id").notNull(),
+  viewedAt: timestamp("viewed_at").notNull().defaultNow(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+}, (table) => ({
+  userIdIdx: index("web_version_views_user_id_idx").on(table.userId),
+  campaignIdIdx: index("web_version_views_campaign_id_idx").on(table.campaignId),
+  subscriberIdIdx: index("web_version_views_subscriber_id_idx").on(table.subscriberId),
+  // Composite FK to enforce same-tenant campaign (with CASCADE)
+  campaignUserFk: foreignKey({
+    columns: [table.campaignId, table.userId],
+    foreignColumns: [campaigns.id, campaigns.userId],
+    name: "web_version_views_campaign_user_fk"
+  }).onDelete('cascade'),
+  // Composite FK to enforce same-tenant subscriber (with CASCADE)
+  subscriberUserFk: foreignKey({
+    columns: [table.subscriberId, table.userId],
+    foreignColumns: [subscribers.id, subscribers.userId],
+    name: "web_version_views_subscriber_user_fk"
+  }).onDelete('cascade'),
+  // Basic userId FK for user deletion cascade
+  userFk: foreignKey({
+    columns: [table.userId],
+    foreignColumns: [users.id],
+    name: "web_version_views_user_fk"
+  }).onDelete('cascade'),
+}));
+
+export type WebVersionView = typeof webVersionViews.$inferSelect;
+
 // Campaign Analytics table - with composite FK for tenant isolation
 export const campaignAnalytics = pgTable("campaign_analytics", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -537,6 +572,17 @@ export const linkClicksRelations = relations(linkClicks, ({ one }) => ({
   }),
   subscriber: one(subscribers, {
     fields: [linkClicks.subscriberId],
+    references: [subscribers.id],
+  }),
+}));
+
+export const webVersionViewsRelations = relations(webVersionViews, ({ one }) => ({
+  campaign: one(campaigns, {
+    fields: [webVersionViews.campaignId],
+    references: [campaigns.id],
+  }),
+  subscriber: one(subscribers, {
+    fields: [webVersionViews.subscriberId],
     references: [subscribers.id],
   }),
 }));

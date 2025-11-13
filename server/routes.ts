@@ -9,6 +9,7 @@ import {
   campaignAnalytics,
   settings,
   linkClicks,
+  webVersionViews,
   users,
   sessions,
   insertSubscriberSchema,
@@ -1489,6 +1490,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const { campaignId, subscriberId, userId } = decoded;
+      
+      // Track web version view
+      await db.insert(webVersionViews).values({
+        userId,
+        campaignId,
+        subscriberId,
+        ipAddress: req.ip || req.headers['x-forwarded-for']?.toString().split(',')[0].trim() || null,
+        userAgent: req.get('user-agent') || null,
+      });
       
       // Fetch campaign with template
       const [campaign] = await db
