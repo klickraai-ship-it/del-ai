@@ -34,6 +34,69 @@ interface RichTextEditorProps {
   minHeight?: string;
 }
 
+// Convert TipTap HTML to email-safe inline-styled HTML
+function convertToEmailSafeHtml(html: string): string {
+  if (!html) return '';
+  
+  // Create a temporary div to parse HTML
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = html;
+  
+  // Convert all elements to use inline styles instead of classes
+  const processNode = (node: Element) => {
+    // Remove TipTap classes and add inline styles
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const element = node as HTMLElement;
+      
+      // Handle text alignment
+      if (element.style.textAlign) {
+        const align = element.style.textAlign;
+        element.setAttribute('align', align);
+      }
+      
+      // Handle headings - add proper inline styles
+      const tagName = element.tagName.toLowerCase();
+      if (tagName === 'h1') {
+        element.style.cssText = 'font-size: 2em; font-weight: bold; margin: 0.67em 0;';
+      } else if (tagName === 'h2') {
+        element.style.cssText = 'font-size: 1.5em; font-weight: bold; margin: 0.75em 0;';
+      } else if (tagName === 'h3') {
+        element.style.cssText = 'font-size: 1.17em; font-weight: bold; margin: 0.83em 0;';
+      } else if (tagName === 'p') {
+        if (!element.style.cssText) {
+          element.style.cssText = 'margin: 1em 0;';
+        }
+      } else if (tagName === 'a') {
+        if (!element.style.color) {
+          element.style.color = '#0066cc';
+          element.style.textDecoration = 'underline';
+        }
+      } else if (tagName === 'img') {
+        element.style.display = 'block';
+        element.style.maxWidth = '100%';
+        element.style.height = 'auto';
+      }
+      
+      // Remove all class attributes (not supported in emails)
+      element.removeAttribute('class');
+      
+      // Process child nodes
+      Array.from(element.children).forEach(child => processNode(child as Element));
+    }
+  };
+  
+  Array.from(tempDiv.children).forEach(child => processNode(child as Element));
+  
+  // Wrap content in email-safe container
+  const emailHtml = `
+    <div style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; line-height: 1.6; color: #333333;">
+      ${tempDiv.innerHTML}
+    </div>
+  `.trim();
+  
+  return emailHtml;
+}
+
 const RichTextEditor: React.FC<RichTextEditorProps> = ({ 
   content, 
   onChange, 
@@ -49,7 +112,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
       Link.configure({
         openOnClick: false,
         HTMLAttributes: {
-          class: 'text-blue-500 underline',
+          style: 'color: #0066cc; text-decoration: underline;',
         },
       }),
       TextAlign.configure({
@@ -61,13 +124,15 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
       Image.configure({
         inline: true,
         HTMLAttributes: {
-          class: 'max-w-full h-auto rounded',
+          style: 'max-width: 100%; height: auto; display: block;',
         },
       }),
     ],
     content,
     onUpdate: ({ editor }) => {
-      onChange(editor.getHTML());
+      const rawHtml = editor.getHTML();
+      const emailSafeHtml = convertToEmailSafeHtml(rawHtml);
+      onChange(emailSafeHtml);
     },
     editorProps: {
       attributes: {
