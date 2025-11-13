@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Trash2, Send, Calendar, Eye, BarChart3, MousePointerClick, Mail, UserX } from 'lucide-react';
+import { Plus, Search, Trash2, Send, Calendar, Eye, BarChart3, MousePointerClick, Mail, UserX, Monitor } from 'lucide-react';
 
 interface Campaign {
   id: string;
@@ -30,6 +30,9 @@ interface CampaignAnalytics {
   complained: number;
   unsubscribed: number;
   linkClicks: Array<{ url: string; count: number }>;
+  webVersionViews?: number;
+  uniqueWebVersionViewers?: number;
+  recentWebVersionViews?: Array<{ subscriberId: string; viewedAt: string }>;
 }
 
 const CampaignsList: React.FC = () => {
@@ -60,9 +63,17 @@ const CampaignsList: React.FC = () => {
     try {
       const response = await fetch('/api/campaigns');
       const data = await response.json();
-      setCampaigns(data);
+      
+      // Handle error responses or non-array data
+      if (Array.isArray(data)) {
+        setCampaigns(data);
+      } else {
+        console.error('Invalid response format:', data);
+        setCampaigns([]);
+      }
     } catch (error) {
       console.error('Error fetching campaigns:', error);
+      setCampaigns([]);
     } finally {
       setLoading(false);
     }
@@ -326,6 +337,30 @@ const CampaignsList: React.FC = () => {
                         <div className="text-2xl font-bold text-white">{analytics.unsubscribed}</div>
                         <div className="text-xs text-gray-400">Unsubscribed</div>
                         <div className="text-xs text-gray-500">{analytics.delivered > 0 ? ((analytics.unsubscribed / analytics.delivered) * 100).toFixed(2) : 0}%</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mt-4">
+                  <div className="bg-gray-900 border border-gray-700 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <Monitor className="h-8 w-8 text-cyan-400" />
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-white">{analytics.webVersionViews || 0}</div>
+                        <div className="text-xs text-gray-400">Web Version Views</div>
+                        <div className="text-xs text-gray-500">Total views</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-900 border border-gray-700 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <Eye className="h-8 w-8 text-teal-400" />
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-white">{analytics.uniqueWebVersionViewers || 0}</div>
+                        <div className="text-xs text-gray-400">Unique Viewers</div>
+                        <div className="text-xs text-gray-500">{analytics.delivered > 0 ? ((analytics.uniqueWebVersionViewers || 0) / analytics.delivered * 100).toFixed(1) : 0}% of delivered</div>
                       </div>
                     </div>
                   </div>

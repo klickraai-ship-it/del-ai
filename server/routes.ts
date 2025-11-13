@@ -722,9 +722,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .groupBy(linkClicks.url)
         .orderBy(sql`count(*) DESC`);
       
+      // Get web version views analytics
+      const webVersionViewsData = await db
+        .select({
+          subscriberId: webVersionViews.subscriberId,
+          viewedAt: webVersionViews.viewedAt,
+        })
+        .from(webVersionViews)
+        .where(and(
+          eq(webVersionViews.campaignId, req.params.id),
+          eq(webVersionViews.userId, userId)
+        ))
+        .orderBy(desc(webVersionViews.viewedAt));
+      
+      const totalWebVersionViews = webVersionViewsData.length;
+      const uniqueWebVersionViewers = new Set(webVersionViewsData.map(v => v.subscriberId)).size;
+      
       res.json({
         ...analytics,
         linkClicks: clicksData,
+        webVersionViews: totalWebVersionViews,
+        uniqueWebVersionViewers: uniqueWebVersionViewers,
+        recentWebVersionViews: webVersionViewsData.slice(0, 10),
       });
     } catch (error) {
       console.error("Error fetching campaign analytics:", error);
