@@ -649,13 +649,13 @@ const CampaignsList: React.FC = () => {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setShowAddModal(false)}
-                className="flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                className="flex-1 px-4 min-h-[44px] bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleAddCampaign}
-                className="flex-1 px-4 py-2 bg-brand-blue text-white rounded-lg hover:bg-brand-blue-light transition-colors"
+                className="flex-1 px-4 min-h-[44px] bg-brand-blue text-white rounded-lg hover:bg-brand-blue-light transition-colors"
               >
                 Create Campaign
               </button>
