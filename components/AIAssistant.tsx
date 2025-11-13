@@ -86,7 +86,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, onClose, data }) => {
                         <Bot className="h-6 w-6 text-brand-blue mr-2" />
                         <h2 className="text-lg font-semibold text-white">DeliverAI Assistant</h2>
                     </div>
-                    <button onClick={onClose} className="p-1 rounded-full text-gray-400 hover:bg-gray-700 hover:text-white">
+                    <button onClick={onClose} className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-700 hover:text-white">
                         <X className="h-5 w-5" />
                     </button>
                 </div>
@@ -130,7 +130,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, onClose, data }) => {
                     <div className="px-4 pb-2">
                         <div className="grid grid-cols-2 gap-2">
                             {suggestionPrompts.map(prompt => (
-                                <button key={prompt} onClick={() => handleSendMessage(prompt)} className="text-left text-sm p-3 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors">
+                                <button key={prompt} onClick={() => handleSendMessage(prompt)} className="text-left text-sm p-3 min-h-[44px] bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors flex items-center">
                                     {prompt}
                                 </button>
                             ))}
@@ -153,7 +153,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ isOpen, onClose, data }) => {
                         <button
                             onClick={() => handleSendMessage()}
                             disabled={isLoading || !input.trim()}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-md bg-brand-blue text-white disabled:bg-gray-600 disabled:cursor-not-allowed hover:bg-brand-blue-light transition-colors"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md bg-brand-blue text-white disabled:bg-gray-600 disabled:cursor-not-allowed hover:bg-brand-blue-light transition-colors"
                         >
                             <Send className="h-5 w-5" />
                         </button>

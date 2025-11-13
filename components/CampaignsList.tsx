@@ -207,7 +207,7 @@ const CampaignsList: React.FC = () => {
         </div>
         <button
           onClick={() => setShowAddModal(true)}
-          className="flex items-center justify-center px-4 sm:px-5 py-2.5 sm:py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-500 hover:to-purple-500 transition-all duration-200 shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 text-sm sm:text-base"
+          className="flex items-center justify-center px-4 sm:px-5 min-h-[44px] bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-500 hover:to-purple-500 transition-all duration-200 shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 text-sm sm:text-base"
         >
           <Plus className="h-5 w-5 mr-2" />
           <span>Create Campaign</span>
@@ -385,7 +385,7 @@ const CampaignsList: React.FC = () => {
               </div>
               <button
                 onClick={() => setShowAnalyticsModal(false)}
-                className="text-gray-400 hover:text-white text-2xl"
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-white text-2xl"
               >
                 ✕
               </button>

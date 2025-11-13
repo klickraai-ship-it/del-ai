@@ -194,28 +194,28 @@ const TemplatesList: React.FC = () => {
               <div className="relative flex flex-wrap gap-2">
                 <button
                   onClick={() => handlePreview(template)}
-                  className="flex-1 flex items-center justify-center px-3 py-2.5 bg-gray-700/50 text-gray-300 rounded-xl hover:bg-blue-600 hover:text-white transition-all duration-200 text-sm font-medium"
+                  className="flex-1 flex items-center justify-center px-3 min-h-[44px] bg-gray-700/50 text-gray-300 rounded-xl hover:bg-blue-600 hover:text-white transition-all duration-200 text-sm font-medium"
                 >
                   <Eye className="h-4 w-4 mr-1.5" />
                   Preview
                 </button>
                 <button
                   onClick={() => handleEditTemplate(template)}
-                  className="px-3 py-2.5 bg-gray-700/50 text-gray-300 rounded-xl hover:bg-purple-600 hover:text-white transition-all duration-200"
+                  className="px-3 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-700/50 text-gray-300 rounded-xl hover:bg-purple-600 hover:text-white transition-all duration-200"
                   title="Edit"
                 >
                   <Edit className="h-4 w-4" />
                 </button>
                 <button
                   onClick={() => handleDuplicateTemplate(template.id)}
-                  className="px-3 py-2.5 bg-gray-700/50 text-gray-300 rounded-xl hover:bg-green-600 hover:text-white transition-all duration-200"
+                  className="px-3 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-700/50 text-gray-300 rounded-xl hover:bg-green-600 hover:text-white transition-all duration-200"
                   title="Duplicate"
                 >
                   <Copy className="h-4 w-4" />
                 </button>
                 <button
                   onClick={() => handleDeleteTemplate(template.id)}
-                  className="px-3 py-2.5 bg-red-500/10 text-red-400 rounded-xl hover:bg-red-600 hover:text-white transition-all duration-200"
+                  className="px-3 min-h-[44px] min-w-[44px] flex items-center justify-center bg-red-500/10 text-red-400 rounded-xl hover:bg-red-600 hover:text-white transition-all duration-200"
                   title="Delete"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -242,7 +242,7 @@ const TemplatesList: React.FC = () => {
               </div>
               <button
                 onClick={() => setShowPreviewModal(false)}
-                className="text-gray-400 hover:text-white"
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-400 hover:text-white text-2xl"
               >
                 ✕
               </button>

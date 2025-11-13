@@ -14,7 +14,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleMobileMenu }) =
       <div className="flex items-center gap-3">
         <button
           onClick={onToggleMobileMenu}
-          className="md:hidden p-2 rounded-lg text-gray-400 hover:bg-gray-700/50 hover:text-white transition-all duration-200"
+          className="md:hidden min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-700/50 hover:text-white transition-all duration-200"
           aria-label="Toggle menu"
         >
           <Menu className="h-6 w-6" />
@@ -33,7 +33,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleMobileMenu }) =
             className="bg-gray-700/50 border border-gray-600/50 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:bg-gray-700/70 w-64"
           />
         </div>
-        <button className="p-2.5 rounded-xl text-gray-400 hover:bg-gray-700/50 hover:text-white focus:outline-none transition-all duration-200 hover:scale-110 relative">
+        <button className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-gray-400 hover:bg-gray-700/50 hover:text-white focus:outline-none transition-all duration-200 hover:scale-110 relative">
           <Bell className="h-5 w-5" />
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-gray-800"></span>
         </button>
@@ -53,7 +53,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleMobileMenu }) =
         {onLogout && (
           <button
             onClick={onLogout}
-            className="p-2.5 rounded-xl text-gray-400 hover:bg-red-500/20 hover:text-red-400 focus:outline-none transition-all duration-200 hover:scale-110"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-gray-400 hover:bg-red-500/20 hover:text-red-400 focus:outline-none transition-all duration-200 hover:scale-110"
             title="Logout"
           >
             <LogOut className="h-5 w-5" />

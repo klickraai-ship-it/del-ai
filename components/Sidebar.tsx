@@ -89,7 +89,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate, mobileMenuOp
           </div>
           <button
             onClick={onCloseMobileMenu}
-            className="p-2 rounded-lg text-gray-400 hover:bg-gray-700/50 hover:text-white transition-all duration-200"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-700/50 hover:text-white transition-all duration-200"
             aria-label="Close menu"
           >
             <X className="h-5 w-5" />

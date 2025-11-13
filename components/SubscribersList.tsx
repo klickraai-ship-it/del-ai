@@ -80,7 +80,7 @@ const SubscribersList: React.FC = () => {
         </div>
         <button
           onClick={() => setShowAddModal(true)}
-          className="flex items-center justify-center px-4 py-2.5 bg-brand-blue text-white rounded-lg hover:bg-brand-blue-light transition-colors text-sm sm:text-base"
+          className="flex items-center justify-center px-4 min-h-[44px] bg-brand-blue text-white rounded-lg hover:bg-brand-blue-light transition-colors text-sm sm:text-base"
         >
           <Plus className="h-5 w-5 mr-2" />
           <span>Add Subscriber</span>
@@ -264,13 +264,13 @@ const SubscribersList: React.FC = () => {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setShowAddModal(false)}
-                className="flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                className="flex-1 px-4 min-h-[44px] bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleAddSubscriber}
-                className="flex-1 px-4 py-2 bg-brand-blue text-white rounded-lg hover:bg-brand-blue-light transition-colors"
+                className="flex-1 px-4 min-h-[44px] bg-brand-blue text-white rounded-lg hover:bg-brand-blue-light transition-colors"
               >
                 Add Subscriber
               </button>
