@@ -81,7 +81,11 @@ const App: React.FC = () => {
       case 'settings':
         return <SettingsPage />;
       default:
-        return <Dashboard data={data} />;
+        return data ? (
+          <Dashboard data={data} />
+        ) : (
+          <div className="text-center text-gray-400">Failed to load dashboard data.</div>
+        );
     }
   };
 

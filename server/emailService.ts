@@ -336,6 +336,7 @@ export class EmailTrackingService {
 
 export interface BatchEmailJob {
   campaignId: string;
+  userId: string;
   subscribers: Array<{
     id: string;
     email: string;
@@ -390,6 +391,7 @@ export class BatchEmailProcessor {
             campaignId: job.campaignId,
             subscriberId: subscriber.id,
             trackingDomain: trackingService['trackingDomain'],
+            userId: job.userId,
           });
 
           await sendEmail({

@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@aws-sdk/client-ses": "^3.930.0",
     "@google/generative-ai": "^0.21.0",
     "@neondatabase/serverless": "^1.0.2",
     "@tailwindcss/postcss": "^4.1.17",
