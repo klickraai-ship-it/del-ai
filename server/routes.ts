@@ -12,16 +12,28 @@ import {
   webVersionViews,
   users,
   sessions,
+  paymentProviders,
+  paymentTransactions,
+  termsAndConditions,
+  userTermsAcceptance,
   insertSubscriberSchema,
   insertEmailTemplateSchema,
   insertCampaignSchema,
   insertSettingSchema,
+  insertPaymentProviderSchema,
+  insertPaymentTransactionSchema,
+  insertTermsAndConditionsSchema,
+  insertUserTermsAcceptanceSchema,
   type Subscriber,
   type EmailTemplate,
   type Campaign,
   type CampaignAnalytics,
   type User,
   type Session,
+  type PaymentProvider,
+  type PaymentTransaction,
+  type TermsAndConditions,
+  type UserTermsAcceptance,
 } from "@/shared/schema";
 import * as schema from "@/shared/schema"; // Import schema to access notifications table
 import { eq, desc, inArray, and, sql, gte, or, isNull } from "drizzle-orm";
@@ -81,13 +93,37 @@ async function requireAuth(req: any, res: any, next: any) {
       return res.status(401).json({ message: "Unauthorized - Invalid or expired token" });
     }
 
-    // Add userId to request for use in route handlers
+    // Fetch the user to attach to request
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, session.userId))
+      .limit(1);
+
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+
+    // Add userId and user to request for use in route handlers
     req.userId = session.userId;
+    req.user = user;
     next();
   } catch (error) {
     console.error("Auth middleware error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
+}
+
+// Middleware to check if user is superadmin
+async function requireSuperAdmin(req: any, res: any, next: any) {
+  // First, ensure user is authenticated
+  await requireAuth(req, res, () => {
+    // Check if user is superadmin
+    if (!req.user || !req.user.isSuperAdmin) {
+      return res.status(403).json({ message: "Forbidden - Superadmin access required" });
+    }
+    next();
+  });
 }
 
 // Helper to generate secure session token
@@ -261,6 +297,476 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Get user error:", error);
       res.status(500).json({ message: "Failed to get user" });
+    }
+  });
+
+  // ========== SUPERADMIN API (Requires Superadmin Access) ==========
+
+  // Get all users (superadmin only)
+  app.get("/api/admin/users", requireSuperAdmin, async (req, res) => {
+    try {
+      const allUsers = await db
+        .select()
+        .from(users)
+        .orderBy(desc(users.createdAt));
+
+      const usersWithoutPasswords = allUsers.map(({ passwordHash, twoFactorSecret, ...user }) => user);
+      res.json(usersWithoutPasswords);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  // Create user (superadmin only - form or CSV)
+  app.post("/api/admin/users", requireSuperAdmin, async (req, res) => {
+    try {
+      const { email, password, name, companyName, paymentStatus } = req.body;
+
+      // Validate required fields
+      if (!email || !password || !name) {
+        return res.status(400).json({ message: "Email, password, and name are required" });
+      }
+
+      // Email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ message: "Invalid email format" });
+      }
+
+      // Password strength check (min 8 chars, at least one letter and one number)
+      if (password.length < 8) {
+        return res.status(400).json({ message: "Password must be at least 8 characters long" });
+      }
+
+      const hasLetter = /[a-zA-Z]/.test(password);
+      const hasNumber = /\d/.test(password);
+      if (!hasLetter || !hasNumber) {
+        return res.status(400).json({ message: "Password must contain at least one letter and one number" });
+      }
+
+      // Normalize email to lowercase
+      const normalizedEmail = email.toLowerCase().trim();
+
+      // Check if user already exists
+      const [existing] = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, normalizedEmail))
+        .limit(1);
+
+      if (existing) {
+        return res.status(400).json({ message: "User with this email already exists" });
+      }
+
+      // Hash password
+      const passwordHash = await bcrypt.hash(password, 10);
+
+      // Create user
+      const [newUser] = await db
+        .insert(users)
+        .values({
+          email: normalizedEmail,
+          passwordHash,
+          name,
+          companyName: companyName || null,
+          paymentStatus: paymentStatus || 'none',
+          isVerified: true, // Admin-created users are auto-verified
+        })
+        .returning();
+
+      const { passwordHash: _, twoFactorSecret: __, ...userWithoutSensitive } = newUser;
+      res.status(201).json(userWithoutSensitive);
+    } catch (error) {
+      console.error("Error creating user:", error);
+      res.status(500).json({ message: "Failed to create user" });
+    }
+  });
+
+  // Batch create users from CSV (superadmin only)
+  app.post("/api/admin/users/batch", requireSuperAdmin, async (req, res) => {
+    try {
+      const { users: usersData } = req.body;
+
+      if (!Array.isArray(usersData) || usersData.length === 0) {
+        return res.status(400).json({ message: "Invalid users data" });
+      }
+
+      const created = [];
+      const errors = [];
+
+      for (const userData of usersData) {
+        try {
+          const { email, password, name, companyName, paymentStatus } = userData;
+
+          if (!email || !password || !name) {
+            errors.push({ email, error: "Missing required fields" });
+            continue;
+          }
+
+          // Email validation
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(email)) {
+            errors.push({ email, error: "Invalid email format" });
+            continue;
+          }
+
+          // Password strength check
+          if (password.length < 8) {
+            errors.push({ email, error: "Password must be at least 8 characters long" });
+            continue;
+          }
+
+          const hasLetter = /[a-zA-Z]/.test(password);
+          const hasNumber = /\d/.test(password);
+          if (!hasLetter || !hasNumber) {
+            errors.push({ email, error: "Password must contain at least one letter and one number" });
+            continue;
+          }
+
+          // Normalize email to lowercase
+          const normalizedEmail = email.toLowerCase().trim();
+
+          // Check if user exists
+          const [existing] = await db
+            .select()
+            .from(users)
+            .where(eq(users.email, normalizedEmail))
+            .limit(1);
+
+          if (existing) {
+            errors.push({ email: normalizedEmail, error: "User already exists" });
+            continue;
+          }
+
+          // Hash password and create user
+          const passwordHash = await bcrypt.hash(password, 10);
+          const [newUser] = await db
+            .insert(users)
+            .values({
+              email: normalizedEmail,
+              passwordHash,
+              name,
+              companyName: companyName || null,
+              paymentStatus: paymentStatus || 'none',
+              isVerified: true,
+            })
+            .returning();
+
+          const { passwordHash: _, twoFactorSecret: __, ...userWithoutSensitive } = newUser;
+          created.push(userWithoutSensitive);
+        } catch (err: any) {
+          errors.push({ email: userData.email, error: err.message });
+        }
+      }
+
+      res.status(201).json({
+        created: created.length,
+        errors: errors.length,
+        createdUsers: created,
+        errorDetails: errors,
+      });
+    } catch (error) {
+      console.error("Error batch creating users:", error);
+      res.status(500).json({ message: "Failed to batch create users" });
+    }
+  });
+
+  // Update user (superadmin only)
+  app.patch("/api/admin/users/:id", requireSuperAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates: any = {};
+
+      // Allow updating these fields
+      const allowedFields = ['name', 'companyName', 'paymentStatus', 'isVerified'];
+      for (const field of allowedFields) {
+        if (req.body[field] !== undefined) {
+          updates[field] = req.body[field];
+        }
+      }
+
+      // Special handling for password
+      if (req.body.password) {
+        updates.passwordHash = await bcrypt.hash(req.body.password, 10);
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ message: "No valid fields to update" });
+      }
+
+      updates.updatedAt = new Date();
+
+      const [updatedUser] = await db
+        .update(users)
+        .set(updates)
+        .where(eq(users.id, id))
+        .returning();
+
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const { passwordHash: _, twoFactorSecret: __, ...userWithoutSensitive } = updatedUser;
+      res.json(userWithoutSensitive);
+    } catch (error) {
+      console.error("Error updating user:", error);
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
+  // Delete user (superadmin only)
+  app.delete("/api/admin/users/:id", requireSuperAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      // Prevent deleting superadmins
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, id))
+        .limit(1);
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (user.isSuperAdmin) {
+        return res.status(403).json({ message: "Cannot delete superadmin accounts" });
+      }
+
+      await db.delete(users).where(eq(users.id, id));
+      res.json({ message: "User deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ message: "Failed to delete user" });
+    }
+  });
+
+  // Get payment providers (superadmin only)
+  app.get("/api/admin/payment-providers", requireSuperAdmin, async (req, res) => {
+    try {
+      const providers = await db
+        .select()
+        .from(paymentProviders)
+        .orderBy(desc(paymentProviders.createdAt));
+
+      // Decrypt sensitive config data
+      const providersWithDecryptedConfig = providers.map(provider => ({
+        ...provider,
+        config: provider.config ? decryptObject(provider.config) : provider.config,
+      }));
+
+      res.json(providersWithDecryptedConfig);
+    } catch (error) {
+      console.error("Error fetching payment providers:", error);
+      res.status(500).json({ message: "Failed to fetch payment providers" });
+    }
+  });
+
+  // Create or update payment provider (superadmin only)
+  app.post("/api/admin/payment-providers", requireSuperAdmin, async (req, res) => {
+    try {
+      const validatedData = insertPaymentProviderSchema.parse(req.body);
+      const { provider, isActive, config } = validatedData;
+
+      // Encrypt the config before storing
+      const encryptedConfig = encryptObject(config);
+
+      // Check if provider already exists
+      const [existing] = await db
+        .select()
+        .from(paymentProviders)
+        .where(eq(paymentProviders.provider, provider))
+        .limit(1);
+
+      let result;
+      if (existing) {
+        // Update existing provider
+        [result] = await db
+          .update(paymentProviders)
+          .set({
+            isActive,
+            config: encryptedConfig,
+            updatedAt: new Date(),
+          })
+          .where(eq(paymentProviders.provider, provider))
+          .returning();
+      } else {
+        // Create new provider
+        [result] = await db
+          .insert(paymentProviders)
+          .values({
+            provider,
+            isActive,
+            config: encryptedConfig,
+            createdBy: (req as any).userId,
+          })
+          .returning();
+      }
+
+      // Return with decrypted config
+      res.json({
+        ...result,
+        config: decryptObject(result.config),
+      });
+    } catch (error: any) {
+      console.error("Error saving payment provider:", error);
+      res.status(400).json({ message: error.message || "Failed to save payment provider" });
+    }
+  });
+
+  // Get payment transactions (superadmin only)
+  app.get("/api/admin/payments", requireSuperAdmin, async (req, res) => {
+    try {
+      const transactions = await db
+        .select({
+          id: paymentTransactions.id,
+          userId: paymentTransactions.userId,
+          provider: paymentTransactions.provider,
+          transactionId: paymentTransactions.transactionId,
+          amount: paymentTransactions.amount,
+          currency: paymentTransactions.currency,
+          status: paymentTransactions.status,
+          createdAt: paymentTransactions.createdAt,
+          userName: users.name,
+          userEmail: users.email,
+        })
+        .from(paymentTransactions)
+        .leftJoin(users, eq(paymentTransactions.userId, users.id))
+        .orderBy(desc(paymentTransactions.createdAt));
+
+      res.json(transactions);
+    } catch (error) {
+      console.error("Error fetching payment transactions:", error);
+      res.status(500).json({ message: "Failed to fetch payment transactions" });
+    }
+  });
+
+  // Get terms & conditions (superadmin only for management)
+  app.get("/api/admin/terms", requireSuperAdmin, async (req, res) => {
+    try {
+      const allTerms = await db
+        .select()
+        .from(termsAndConditions)
+        .orderBy(desc(termsAndConditions.createdAt));
+
+      res.json(allTerms);
+    } catch (error) {
+      console.error("Error fetching terms:", error);
+      res.status(500).json({ message: "Failed to fetch terms" });
+    }
+  });
+
+  // Create or update terms & conditions (superadmin only)
+  app.post("/api/admin/terms", requireSuperAdmin, async (req, res) => {
+    try {
+      const validatedData = insertTermsAndConditionsSchema.parse(req.body);
+      const { version, title, content, isActive } = validatedData;
+
+      // If setting this as active, deactivate all others
+      if (isActive) {
+        await db
+          .update(termsAndConditions)
+          .set({ isActive: false })
+          .where(eq(termsAndConditions.isActive, true));
+      }
+
+      // Check if version exists
+      const [existing] = await db
+        .select()
+        .from(termsAndConditions)
+        .where(eq(termsAndConditions.version, version))
+        .limit(1);
+
+      let result;
+      if (existing) {
+        // Update existing
+        [result] = await db
+          .update(termsAndConditions)
+          .set({ title, content, isActive, updatedAt: new Date() })
+          .where(eq(termsAndConditions.version, version))
+          .returning();
+      } else {
+        // Create new
+        [result] = await db
+          .insert(termsAndConditions)
+          .values({ version, title, content, isActive })
+          .returning();
+      }
+
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error saving terms:", error);
+      res.status(400).json({ message: error.message || "Failed to save terms" });
+    }
+  });
+
+  // Get active terms (public)
+  app.get("/api/terms", async (req, res) => {
+    try {
+      const [activeTerms] = await db
+        .select()
+        .from(termsAndConditions)
+        .where(eq(termsAndConditions.isActive, true))
+        .limit(1);
+
+      if (!activeTerms) {
+        return res.status(404).json({ message: "No active terms found" });
+      }
+
+      res.json(activeTerms);
+    } catch (error) {
+      console.error("Error fetching active terms:", error);
+      res.status(500).json({ message: "Failed to fetch terms" });
+    }
+  });
+
+  // Accept terms (authenticated users)
+  app.post("/api/terms/accept", requireAuth, async (req, res) => {
+    try {
+      const { termsId } = req.body;
+      const userId = (req as any).userId;
+
+      // Get the terms
+      const [terms] = await db
+        .select()
+        .from(termsAndConditions)
+        .where(eq(termsAndConditions.id, termsId))
+        .limit(1);
+
+      if (!terms) {
+        return res.status(404).json({ message: "Terms not found" });
+      }
+
+      // Check if already accepted
+      const [existing] = await db
+        .select()
+        .from(userTermsAcceptance)
+        .where(and(
+          eq(userTermsAcceptance.userId, userId),
+          eq(userTermsAcceptance.termsId, termsId)
+        ))
+        .limit(1);
+
+      if (existing) {
+        return res.status(400).json({ message: "Terms already accepted" });
+      }
+
+      // Record acceptance
+      const [acceptance] = await db
+        .insert(userTermsAcceptance)
+        .values({
+          userId,
+          termsId,
+          termsVersion: terms.version,
+        })
+        .returning();
+
+      res.json(acceptance);
+    } catch (error) {
+      console.error("Error accepting terms:", error);
+      res.status(500).json({ message: "Failed to accept terms" });
     }
   });
 
