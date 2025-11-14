@@ -1,23 +1,25 @@
 
 import React from 'react';
-import { LayoutDashboard, BarChart3, Mail, Users, Settings, LifeBuoy, X } from 'lucide-react';
+import { LayoutDashboard, BarChart3, Mail, Users, Settings, LifeBuoy, X, Shield } from 'lucide-react';
 
-type PageType = 'dashboard' | 'campaigns' | 'templates' | 'subscribers' | 'settings';
+type PageType = 'dashboard' | 'campaigns' | 'templates' | 'subscribers' | 'settings' | 'admin';
 
 interface SidebarProps {
   currentPage: PageType;
   onNavigate: (page: PageType) => void;
   mobileMenuOpen?: boolean;
   onCloseMobileMenu?: () => void;
+  isSuperAdmin?: boolean;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate, mobileMenuOpen = false, onCloseMobileMenu }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate, mobileMenuOpen = false, onCloseMobileMenu, isSuperAdmin = false }) => {
   const navItems: { icon: any; label: string; page: PageType }[] = [
     { icon: LayoutDashboard, label: 'Dashboard', page: 'dashboard' },
     { icon: BarChart3, label: 'Campaigns', page: 'campaigns' },
     { icon: Mail, label: 'Templates', page: 'templates' },
     { icon: Users, label: 'Subscribers', page: 'subscribers' },
     { icon: Settings, label: 'Settings', page: 'settings' },
+    ...(isSuperAdmin ? [{ icon: Shield, label: 'Admin', page: 'admin' as PageType }] : []),
   ];
 
   return (

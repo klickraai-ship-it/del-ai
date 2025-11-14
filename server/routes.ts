@@ -570,15 +570,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = insertPaymentProviderSchema.parse(req.body);
       const { provider, isActive, config } = validatedData;
 
-      // Encrypt the config before storing
-      const encryptedConfig = encryptObject(config);
-
       // Check if provider already exists
       const [existing] = await db
         .select()
         .from(paymentProviders)
         .where(eq(paymentProviders.provider, provider))
         .limit(1);
+
+      let finalConfig = config;
+      
+      // If updating and secrets are empty, preserve existing secrets
+      if (existing) {
+        const existingConfig = existing.config ? decryptObject(existing.config) : {};
+        finalConfig = {
+          ...existingConfig,
+          ...config,
+        };
+        // Remove empty values to preserve existing
+        Object.keys(finalConfig).forEach(key => {
+          if (!finalConfig[key]) {
+            finalConfig[key] = existingConfig[key];
+          }
+        });
+      }
+
+      // Encrypt the final config before storing
+      const encryptedConfig = encryptObject(finalConfig);
 
       let result;
       if (existing) {

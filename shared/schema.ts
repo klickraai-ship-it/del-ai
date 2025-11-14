@@ -668,14 +668,14 @@ export const insertPaymentProviderSchema = z.object({
   provider: z.enum(['razorpay', 'paypal']),
   isActive: z.boolean().default(false),
   config: z.object({
-    // Razorpay config
+    // Razorpay config (all optional to allow updates without re-entering secrets)
     keyId: z.string().optional(),
     keySecret: z.string().optional(),
-    // PayPal config
+    // PayPal config (all optional to allow updates without re-entering secrets)
     clientId: z.string().optional(),
     clientSecret: z.string().optional(),
     mode: z.enum(['sandbox', 'production']).optional(),
-  }),
+  }).optional().default({}),
 }).strict();
 
 export type InsertPaymentProvider = z.infer<typeof insertPaymentProviderSchema>;

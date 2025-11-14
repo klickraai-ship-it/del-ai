@@ -7,6 +7,7 @@ import SubscribersList from './components/SubscribersList';
 import TemplatesList from './components/TemplatesList';
 import CampaignsList from './components/CampaignsList';
 import SettingsPage from './components/SettingsPage';
+import AdminDashboard from './components/AdminDashboard';
 import LoginPage from './components/LoginPage';
 import { api } from './client/src/lib/api';
 
@@ -35,7 +36,7 @@ const generateMockData = (): DashboardData => ({
   ],
 });
 
-type PageType = 'dashboard' | 'campaigns' | 'templates' | 'subscribers' | 'settings';
+type PageType = 'dashboard' | 'campaigns' | 'templates' | 'subscribers' | 'settings' | 'admin';
 
 const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<PageType>('dashboard');
@@ -135,6 +136,16 @@ const App: React.FC = () => {
         return <SubscribersList />;
       case 'settings':
         return <SettingsPage />;
+      case 'admin':
+        // Check if user is superadmin
+        if (!user?.isSuperAdmin) {
+          return (
+            <div className="text-center text-red-400 p-8">
+              Access Denied: Superadmin privileges required
+            </div>
+          );
+        }
+        return <AdminDashboard />;
       default:
         if (loading) {
           return (
@@ -178,6 +189,7 @@ const App: React.FC = () => {
         onNavigate={handleNavigate}
         mobileMenuOpen={mobileMenuOpen}
         onCloseMobileMenu={() => setMobileMenuOpen(false)}
+        isSuperAdmin={user?.isSuperAdmin || false}
       />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header 
