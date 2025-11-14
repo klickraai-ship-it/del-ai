@@ -15,6 +15,21 @@ class ApiClient {
       throw new Error('Unauthorized - redirecting to login');
     }
 
+    if (response.status === 403) {
+      const errorData = await response.json().catch(() => ({ message: 'Forbidden' }));
+      
+      // Handle demo expiry
+      if (errorData.code === 'DEMO_EXPIRED') {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('user');
+        localStorage.setItem('demoExpired', 'true');
+        window.location.href = '/';
+        throw new Error('Demo period expired - please upgrade to continue');
+      }
+      
+      throw new Error(errorData.message || 'Forbidden');
+    }
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ message: 'Request failed' }));
       throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);

@@ -70,6 +70,9 @@ const notificationService = {
 };
 
 
+// Demo mode duration: 10 minutes in milliseconds
+const DEMO_DURATION_MS = 10 * 60 * 1000;
+
 // Middleware to validate session and extract userId
 async function requireAuth(req: any, res: any, next: any) {
   const authHeader = req.headers.authorization;
@@ -103,6 +106,25 @@ async function requireAuth(req: any, res: any, next: any) {
 
     if (!user) {
       return res.status(401).json({ message: "User not found" });
+    }
+
+    // Check demo mode expiry
+    if (user.paymentStatus === 'demo' && user.demoStartedAt) {
+      const demoStartTime = new Date(user.demoStartedAt).getTime();
+      const currentTime = Date.now();
+      const elapsedTime = currentTime - demoStartTime;
+
+      if (elapsedTime > DEMO_DURATION_MS) {
+        // Demo expired
+        return res.status(403).json({ 
+          message: "Demo period expired", 
+          code: "DEMO_EXPIRED",
+          demoExpiredAt: new Date(demoStartTime + DEMO_DURATION_MS).toISOString()
+        });
+      }
+
+      // Add remaining time to user object for frontend
+      user.demoRemainingMs = DEMO_DURATION_MS - elapsedTime;
     }
 
     // Add userId and user to request for use in route handlers
@@ -283,11 +305,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get current user
   app.get("/api/auth/me", requireAuth, async (req, res) => {
     try {
-      const [user] = await db
-        .select()
-        .from(users)
-        .where(eq(users.id, (req as any).userId))
-        .limit(1);
+      // Use user from middleware (includes demoRemainingMs if in demo mode)
+      const user = (req as any).user;
 
       if (!user) {
         return res.status(404).json({ message: "User not found" });

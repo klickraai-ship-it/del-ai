@@ -10,6 +10,7 @@ import SettingsPage from './components/SettingsPage';
 import AdminDashboard from './components/AdminDashboard';
 import LoginPage from './components/LoginPage';
 import LandingPage from './components/LandingPage';
+import DemoTimer from './components/DemoTimer';
 import { api } from './client/src/lib/api';
 
 // Mock data generation
@@ -190,6 +191,13 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-gray-900 text-white overflow-hidden">
+      {/* Demo Timer Banner (if in demo mode) */}
+      <DemoTimer 
+        user={user} 
+        onLogout={handleLogout}
+        onUserUpdate={(updatedUser) => setUser(updatedUser)}
+      />
+      
       <Sidebar 
         currentPage={currentPage} 
         onNavigate={handleNavigate}
@@ -203,7 +211,7 @@ const App: React.FC = () => {
           onLogout={handleLogout}
           onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)}
         />
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+        <main className={`flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto ${user?.paymentStatus === 'demo' ? 'mt-10' : ''}`}>
           {renderPage()}
         </main>
       </div>

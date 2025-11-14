@@ -28,9 +28,19 @@ export default function LandingPage() {
   const [selectedProvider, setSelectedProvider] = useState<'razorpay' | 'paypal'>('razorpay');
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
+  const [demoExpired, setDemoExpired] = useState(false);
 
   useEffect(() => {
     fetchConfig();
+    
+    // Check if redirected due to demo expiry
+    const expired = localStorage.getItem('demoExpired');
+    if (expired === 'true') {
+      setDemoExpired(true);
+      setShowSignup(true);
+      setSignupMode('paid');
+      localStorage.removeItem('demoExpired');
+    }
   }, []);
 
   const fetchConfig = async () => {
@@ -324,6 +334,20 @@ export default function LandingPage() {
         >
           ← Back
         </button>
+
+        {demoExpired && (
+          <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+            <div className="flex items-start">
+              <Clock className="text-yellow-400 mr-3 flex-shrink-0 mt-0.5" size={20} />
+              <div>
+                <h3 className="text-sm font-medium text-yellow-800">Demo Period Expired</h3>
+                <p className="text-sm text-yellow-700 mt-1">
+                  Your 10-minute demo has ended. Upgrade now to continue using all features and keep your data.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <h2 className="text-3xl font-bold text-gray-900 mb-2">
           {signupMode === 'demo' ? 'Start Your Demo' : 'Get Full Access'}
