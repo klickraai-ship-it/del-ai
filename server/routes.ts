@@ -33,6 +33,30 @@ import { emailService } from "./emailProvider";
 import { encryptObject, decryptObject } from "./encryption";
 import { sanitizeEmailHtml, sanitizeEmailText, sanitizeSubject } from "./sanitizer";
 
+// Placeholder for notificationService to satisfy the type checker
+const notificationService = {
+  getUserNotifications: async (userId: string) => {
+    // This is a placeholder. The actual implementation would fetch notifications from the DB.
+    // For this example, we'll just return an empty array or mock data if needed.
+    console.log(`[NotificationService Placeholder] Fetching notifications for user: ${userId}`);
+    const notifications = await db
+      .select()
+      .from(schema.notifications)
+      .where(eq(schema.notifications.userId, userId))
+      .orderBy(desc(schema.notifications.createdAt))
+      .limit(50);
+
+    return notifications.map(n => ({
+      id: n.id,
+      type: n.type,
+      message: n.message,
+      timestamp: n.createdAt,
+      read: n.read
+    }));
+  }
+};
+
+
 // Middleware to validate session and extract userId
 async function requireAuth(req: any, res: any, next: any) {
   const authHeader = req.headers.authorization;
@@ -779,24 +803,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Notifications endpoints
   app.get('/api/notifications', requireAuth, async (req, res) => {
     try {
-      const userId = (req as any).userId;
-
-      const notifications = await db
-        .select()
-        .from(schema.notifications)
-        .where(eq(schema.notifications.userId, userId))
-        .orderBy(desc(schema.notifications.createdAt))
-        .limit(50);
-
-      res.json(notifications.map(n => ({
-        id: n.id,
-        type: n.type,
-        message: n.message,
-        timestamp: n.createdAt,
-        read: n.read
-      })));
-    } catch (error) {
-      console.error('Failed to fetch notifications:', error);
+      const userId = req.userId!;
+      console.log(`[Notifications] Fetching for user: ${userId}`);
+      const notifications = await notificationService.getUserNotifications(userId);
+      console.log(`[Notifications] Found ${notifications.length} notification(s)`);
+      res.json(notifications);
+    } catch (error: any) {
+      console.error('Error fetching notifications:', error);
       res.status(500).json({ message: 'Failed to fetch notifications' });
     }
   });
