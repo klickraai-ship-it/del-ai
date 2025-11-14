@@ -6,6 +6,17 @@ DeliverAI Mail is an AI-powered email deliverability platform that provides real
 
 The platform combines a React-based dashboard with a PostgreSQL database backend, offering features for managing email campaigns, templates, subscriber lists, and comprehensive deliverability analytics.
 
+## Recent Changes
+
+**November 14, 2025 - Database Migration to Custom PostgreSQL**
+- Migrated from Neon serverless PostgreSQL to custom self-hosted PostgreSQL database
+- Updated database driver from `@neondatabase/serverless` to standard `pg` (node-postgres)
+- Configured `sslmode=disable` in DATABASE_URL to handle self-signed SSL certificates
+- Verified all 16 database tables successfully migrated with complete schema and indexes
+- Confirmed authentication system (signup/login) working correctly with new database
+- Multi-tenant data isolation verified and functioning
+- **Note**: Database credentials stored securely in Replit Secrets
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
@@ -63,29 +74,53 @@ Preferred communication style: Simple, everyday language.
 
 ### Database Layer
 
+**Database**: Custom self-hosted PostgreSQL database
+
 **ORM**: Drizzle ORM with PostgreSQL dialect
 
-**Database Schema** (defined in `shared/schema.ts`):
+**Database Schema** (defined in `shared/schema.ts`) - 16 tables:
 
-**Core Tables**:
-1. **subscribers**: Email addresses with status tracking (active, unsubscribed, bounced, complained), list memberships, and custom metadata
-2. **emailTemplates**: Reusable HTML/text email templates with subject lines
-3. **campaigns**: Email sending campaigns linked to templates and subscriber lists
-4. **campaignSubscribers**: Junction table tracking which subscribers received which campaigns
-5. **campaignAnalytics**: Per-campaign metrics (opens, clicks, bounces, complaints)
-6. **settings**: Key-value store for SMTP configuration and application settings
+**Authentication & User Management**:
+1. **users**: User accounts with bcrypt password hashing, company info, role-based access, 2FA support
+2. **sessions**: Session tokens for authentication with expiration tracking
+3. **user_settings**: Per-user configuration preferences
+
+**Core Email Management**:
+4. **subscribers**: Email addresses with status tracking (active, unsubscribed, bounced, complained), list memberships, custom metadata, and GDPR double opt-in support
+5. **lists**: Subscriber list organization for segmentation
+6. **emailTemplates**: Reusable HTML/text email templates with subject lines and thumbnails
+7. **campaigns**: Email sending campaigns linked to templates and subscriber lists with scheduling support
+8. **campaignSubscribers**: Junction table tracking which subscribers received which campaigns
+
+**Analytics & Tracking**:
+9. **campaignAnalytics**: Per-campaign metrics (opens, clicks, bounces, complaints, deliverability rates)
+10. **linkClicks**: Individual link click tracking with timestamps
+11. **webVersionViews**: Web version page view tracking
+
+**Email Provider Integration**:
+12. **emailProviderIntegrations**: Encrypted AWS SES credentials storage per user (multi-tenant)
+13. **settings**: Application-wide configuration key-value store
+
+**Compliance & Management**:
+14. **blacklist**: Domain and email blocklist for compliance
+15. **rules**: Automation rules for subscriber management
+16. **notifications**: User notification system
 
 **Schema Validation**: Drizzle-Zod integration generates Zod schemas from database schema definitions, ensuring runtime validation matches database constraints
 
 **Connection Management**: 
-- Uses `@neondatabase/serverless` driver with connection pooling
-- WebSocket-based connections configured via `neonConfig.webSocketConstructor`
+- Uses standard node-postgres (`pg`) driver with connection pooling
+- Custom PostgreSQL database configured via DATABASE_URL environment variable
+- SSL disabled (`sslmode=disable`) to handle self-signed certificates on custom database server
+- Connection pooling via `pg.Pool` for efficient resource management
 
-**Rationale**: Drizzle offers a type-safe, SQL-like query builder that feels familiar to developers while preventing common SQL injection vulnerabilities. The serverless driver enables efficient connection pooling for Neon's PostgreSQL service.
+**Migration**: Successfully migrated from Neon serverless PostgreSQL to custom self-hosted PostgreSQL database (November 14, 2025)
+
+**Rationale**: Drizzle offers a type-safe, SQL-like query builder that feels familiar to developers while preventing common SQL injection vulnerabilities. The standard PostgreSQL driver provides maximum compatibility with self-hosted databases.
 
 **Trade-offs**:
-- Pros: Excellent TypeScript integration, migrations managed via drizzle-kit, lightweight compared to Prisma
-- Cons: Smaller community than alternatives, fewer built-in helpers for complex queries
+- Pros: Excellent TypeScript integration, migrations managed via drizzle-kit (`npm run db:push`), lightweight compared to Prisma, full control over database infrastructure
+- Cons: Smaller community than alternatives, manual SSL certificate management for self-hosted databases
 
 ### AI Integration
 
@@ -107,15 +142,28 @@ Preferred communication style: Simple, everyday language.
 
 ### Authentication & Authorization
 
-**Current State**: No authentication implemented
+**Current State**: Full session-based authentication implemented
 
-**Architectural Gap**: The application currently lacks user authentication, session management, or role-based access control. All API endpoints are publicly accessible.
+**Authentication System**:
+- **Session Tokens**: 32-byte cryptographically secure tokens generated via `randomBytes()`
+- **Password Security**: bcrypt hashing with salt rounds of 10
+- **Session Expiration**: 30-day token lifetime with automatic cleanup
+- **Multi-Tenancy**: Complete data isolation per user via `userId` foreign keys and auth middleware
 
-**Future Considerations**: Would require adding:
-- Authentication middleware (e.g., JWT, session cookies)
-- User table in database schema
-- Protected routes on both frontend and backend
-- Multi-tenancy support to isolate customer data
+**API Endpoints**:
+- `POST /api/auth/signup`: User registration with email validation and password strength requirements (min 8 chars, letter + number)
+- `POST /api/auth/login`: Email/password authentication returning session token
+- `GET /api/auth/me`: Current user profile retrieval
+- Protected routes use Authorization header: `Bearer <token>`
+
+**Authorization Middleware**: All protected API endpoints validate session tokens and inject `userId` into request context for multi-tenant data isolation
+
+**Security Features**:
+- Email uniqueness validation
+- Password strength enforcement (minimum 8 characters, must contain letters and numbers)
+- Case-insensitive email matching
+- Secure session token generation
+- Database-backed session validation
 
 ### Compliance Monitoring System
 
@@ -139,10 +187,11 @@ Preferred communication style: Simple, everyday language.
 
 ### Third-Party Services
 
-**Neon Database**: 
-- Serverless PostgreSQL hosting
-- Configured via `DATABASE_URL` environment variable
-- WebSocket-based connections for serverless compatibility
+**Custom PostgreSQL Database**: 
+- Self-hosted PostgreSQL server (custom instance)
+- Configured via `DATABASE_URL` environment variable (stored in Replit Secrets)
+- Standard TCP connections with SSL disabled for self-signed certificates
+- Managed via `npm run db:push` for schema synchronization
 
 **Google Generative AI (Gemini)**:
 - AI-powered deliverability assistant
@@ -165,7 +214,7 @@ Preferred communication style: Simple, everyday language.
 **Database & ORM**:
 - `drizzle-orm` (0.44.7): Type-safe ORM
 - `drizzle-kit` (0.31.6): Schema migrations
-- `@neondatabase/serverless` (1.0.2): PostgreSQL driver
+- `pg` (latest): Standard PostgreSQL driver for node.js
 - `drizzle-zod` (0.8.3): Schema validation
 
 **UI & Visualization**:
@@ -198,10 +247,16 @@ Preferred communication style: Simple, everyday language.
 
 ### Environment Variables
 
-Required configuration:
-- `DATABASE_URL`: PostgreSQL connection string (Neon database)
-- `GEMINI_API_KEY`: Google Generative AI API key
+**Required Configuration**:
+- `DATABASE_URL`: PostgreSQL connection string for custom database
+  - Format: `postgresql://username:password@host:port/database?sslmode=disable`
+  - Example: `postgresql://myuser:mypass@db.example.com:5432/mydb?sslmode=disable`
+  - Note: `sslmode=disable` required for self-signed SSL certificates
+  - **Security**: Never commit actual credentials. Store in Replit Secrets or environment variables.
+- `GEMINI_API_KEY`: Google Generative AI API key for AI assistant feature
+  - **Security**: Store in Replit Secrets, never commit to repository
 
-Optional future variables:
-- `SMTP_*`: SMTP server credentials for sending emails
-- `JWT_SECRET`: Session signing key (when auth is added)
+**Optional Configuration**:
+- `ENCRYPTION_KEY`: Key for encrypting AWS SES credentials (auto-generated in development, must be set in production)
+- `TRACKING_SECRET`: Secret for validating tracking tokens (auto-generated in development, must be set in production)
+- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`: AWS SES credentials (users configure their own via dashboard)
