@@ -41,7 +41,12 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleMobileMenu }) =
     // Fetch notifications from API
     const fetchNotifications = async () => {
       try {
-        const response = await fetch('/api/notifications');
+        const token = localStorage.getItem('token');
+        const response = await fetch('/api/notifications', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
         if (response.ok) {
           const data = await response.json();
           setNotifications(data);
@@ -77,25 +82,29 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleMobileMenu }) =
     };
 
     fetchNotifications();
-    
+
     // Poll for new notifications every 30 seconds
     const interval = setInterval(fetchNotifications, 30000);
-    
+
     return () => clearInterval(interval);
   }, []);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  const markAsRead = async (id: string) => {
+  const markAsRead = async (notificationId: string) => {
     // Optimistically update UI
     setNotifications(prev => 
-      prev.map(n => n.id === id ? { ...n, read: true } : n)
+      prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
     );
-    
+
     // Update on server
     try {
-      await fetch(`/api/notifications/${id}/read`, {
+      const token = localStorage.getItem('token');
+      await fetch(`/api/notifications/${notificationId}/read`, {
         method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
     } catch (error) {
       console.error('Failed to mark notification as read:', error);
@@ -105,7 +114,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleMobileMenu }) =
   const markAllAsRead = async () => {
     // Optimistically update UI
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    
+
     // Update on server
     try {
       await fetch('/api/notifications/read-all', {
@@ -134,7 +143,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleMobileMenu }) =
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
-    
+
     if (diffMins < 1) return 'Just now';
     if (diffMins < 60) return `${diffMins}m ago`;
     const diffHours = Math.floor(diffMins / 60);
@@ -177,7 +186,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleMobileMenu }) =
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-gray-800"></span>
             )}
           </button>
-          
+
           {showNotifications && (
             <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-gray-800 rounded-xl shadow-2xl border border-gray-700 z-50 max-h-[500px] overflow-hidden flex flex-col">
               <div className="flex items-center justify-between p-4 border-b border-gray-700">
@@ -206,7 +215,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleMobileMenu }) =
                   </button>
                 </div>
               </div>
-              
+
               <div className="overflow-y-auto max-h-[400px]">
                 {notifications.length === 0 ? (
                   <div className="p-8 text-center text-gray-400">
