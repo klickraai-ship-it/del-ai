@@ -894,6 +894,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const complaintRate = totalDelivered > 0 ? ((totalComplained / totalDelivered) * 100).toFixed(2) : '0.00';
       const unsubscribeRate = totalDelivered > 0 ? ((totalUnsubscribed / totalDelivered) * 100).toFixed(2) : '0.00';
 
+      const deliveryRateNum = parseFloat(deliveryRate);
+      const complaintRateNum = parseFloat(complaintRate);
+
       const dashboardData = {
         kpis: [
           { title: 'Delivery Rate', value: `${deliveryRate}%`, change: '+0.1%', changeType: 'increase' as const, period: 'vs last 7d' },
@@ -901,12 +904,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           { title: 'Complaint Rate', value: `${complaintRate}%`, change: '+0.02%', changeType: 'increase' as const, period: 'vs last 7d' },
           { title: 'Unsubscribe Rate', value: `${unsubscribeRate}%`, change: '0.00%', changeType: 'neutral' as const, period: 'vs last 7d' },
         ],
-        gmailSpamRate: parseFloat(complaintRate) || 0.12,
+        gmailSpamRate: complaintRateNum,
         domainPerformance: [
-          { name: 'Gmail', deliveryRate: parseFloat(deliveryRate) || 99.1, complaintRate: parseFloat(complaintRate) || 0.12, spamRate: parseFloat(complaintRate) || 0.12 },
-          { name: 'Yahoo', deliveryRate: 99.5, complaintRate: 0.09, spamRate: 0.08 },
-          { name: 'Outlook', deliveryRate: 98.8, complaintRate: 0.15, spamRate: 0.18 },
-          { name: 'Other', deliveryRate: 97.5, complaintRate: 0.20, spamRate: 0.25 },
+          { name: 'Gmail', deliveryRate: deliveryRateNum, complaintRate: complaintRateNum, spamRate: complaintRateNum },
+          { name: 'Yahoo', deliveryRate: deliveryRateNum, complaintRate: complaintRateNum, spamRate: complaintRateNum },
+          { name: 'Outlook', deliveryRate: deliveryRateNum, complaintRate: complaintRateNum, spamRate: complaintRateNum },
+          { name: 'Other', deliveryRate: deliveryRateNum, complaintRate: complaintRateNum, spamRate: complaintRateNum },
         ],
         complianceChecklist: [
           { id: 'spf', name: 'SPF Alignment', status: 'pass' as const, details: 'SPF record is valid and aligned.', fixLink: '#' },
