@@ -130,9 +130,6 @@ const AppContent: React.FC = () => {
     setSidebarOpen(false);
   };
 
-  const isDemoMode = user?.paymentStatus === 'demo';
-  const demoExpiresAt = user?.demoExpiresAt;
-
   if (!isAuthenticated) {
     return (
       <Routes>
