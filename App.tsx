@@ -105,7 +105,6 @@ const AppContent: React.FC = () => {
     setIsAuthenticated(false);
     setUser(null);
     setDashboardData(null); // Reset dashboard data on logout
-    setCurrentPage('dashboard'); // Reset to dashboard after logout
   };
 
   const fetchDashboardData = async () => {
@@ -133,7 +132,7 @@ const AppContent: React.FC = () => {
   if (!isAuthenticated) {
     return (
       <Routes>
-        <Route path="/" element={<LandingPage onGetStarted={() => navigate('/login')} />} />
+        <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -153,7 +152,7 @@ const AppContent: React.FC = () => {
         isSuperAdmin={user?.role === 'super_admin'}
       />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} currentUser={user} />
+        <Header user={user} onLogout={handleLogout} onToggleMobileMenu={() => setSidebarOpen(!sidebarOpen)} />
         <main className={`flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 ${user?.paymentStatus === 'demo' ? 'mt-10' : ''}`}>
           {error && (
             <div className="mb-4 p-4 bg-red-900/50 border border-red-700 rounded-lg text-red-200">
@@ -180,7 +179,11 @@ const AppContent: React.FC = () => {
       </div>
       <AIAssistantFab onOpen={() => setIsAIOpen(true)} />
       <AIAssistant isOpen={isAIOpen} onClose={() => setIsAIOpen(false)} data={dashboardData} />
-      {isDemoMode && demoExpiresAt && <DemoTimer expiresAt={demoExpiresAt} onExpire={handleDemoExpire} />}
+      <DemoTimer 
+        user={user} 
+        onLogout={handleLogout}
+        onUserUpdate={(updatedUser) => setUser(updatedUser)}
+      />
     </div>
   );
 };
