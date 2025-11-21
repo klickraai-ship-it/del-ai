@@ -1,5 +1,6 @@
 
 import { db } from './db';
+import { eq } from 'drizzle-orm';
 import { 
   users, 
   sessions, 
@@ -138,8 +139,8 @@ async function seed() {
     console.log('✓ Created sample subscribers');
 
     // Update list subscriber counts
-    await db.update(lists).set({ subscriberCount: 2 }).where({ id: generalList.id });
-    await db.update(lists).set({ subscriberCount: 2 }).where({ id: vipList.id });
+    await db.update(lists).set({ subscriberCount: 2 }).where(eq(lists.id, generalList.id));
+    await db.update(lists).set({ subscriberCount: 2 }).where(eq(lists.id, vipList.id));
 
     // Create email templates
     const [welcomeTemplate] = await db.insert(emailTemplates).values({

@@ -105,8 +105,16 @@ Coolify will automatically detect the Dockerfile. Verify these settings:
 ### Build Configuration
 - **Dockerfile Location**: `/Dockerfile` (root of repository)
 - **Docker Context**: `.` (root directory)
-- **Build Command**: Auto-detected from Dockerfile
-- **Start Command**: `npm run start` (already in Dockerfile)
+- **Build Command**: Auto-detected from Dockerfile (builds frontend with Vite)
+- **Start Command**: `npx tsx server/index.ts` (TypeScript runtime, already in Dockerfile)
+
+### Build Process
+The Dockerfile uses a simplified, reliable approach:
+1. **Stage 1**: Builds only the frontend static assets using Vite
+2. **Stage 2**: Copies built frontend + TypeScript source files
+3. **Runtime**: Uses `tsx` to run TypeScript directly (same as development)
+
+**Benefits**: No TypeScript compilation errors, faster builds, identical dev/prod runtime.
 
 ### Health Check
 The Dockerfile includes a health check. Coolify will monitor `/api/health` endpoint.

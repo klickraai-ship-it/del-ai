@@ -7,10 +7,19 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies
 node_modules
+
+# Build output
 dist
 dist-ssr
 *.local
+
+# Environment variables
+.env
+.env.local
+.env.production
+.env.development
 
 # Editor directories and files
 .vscode/*
@@ -23,4 +32,25 @@ dist-ssr
 *.sln
 *.sw?
 
+# Backups
 .git.backup.*
+*.backup
+
+# Replit specific
+.replit
+.config/
+.local/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# OS specific
+Thumbs.db
+.DS_Store
+
+# Development keys
+.encryption-key-dev
+*.pem
+*.key

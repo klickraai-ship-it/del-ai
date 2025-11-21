@@ -1,5 +1,0 @@
-{
-  "name": "DeliverAI Mail Dashboard",
-  "description": "An AI-powered, deliverability-first email platform dashboard. It provides real-time insights into email campaign performance, provider compliance (Gmail/Yahoo), and deliverability health, with assistance from AI agents.",
-  "requestFramePermissions": []
-}

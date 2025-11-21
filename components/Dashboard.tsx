@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { DashboardData } from '../types';
+import type { DashboardData } from '../shared/types';
 import KPITile from './KPITile';
 import SpamRateGauge from './SpamRateGauge';
 import ComplianceChecklist from './ComplianceChecklist';

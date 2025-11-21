@@ -1,6 +1,10 @@
+import { config } from 'dotenv';
 import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from "@/shared/schema";
+
+// Load environment variables from .env.local
+config({ path: '.env.local' });
 
 if (!process.env.DATABASE_URL) {
   throw new Error(

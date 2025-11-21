@@ -135,7 +135,7 @@ class PayPalProvider implements PaymentProvider {
       body: 'grant_type=client_credentials',
     });
 
-    const data = await response.json();
+    const data = await response.json() as any;
     return data.access_token;
   }
 
@@ -159,7 +159,7 @@ class PayPalProvider implements PaymentProvider {
       }),
     });
 
-    const order = await response.json();
+    const order = await response.json() as any;
 
     return {
       orderId: order.id,
@@ -188,7 +188,7 @@ class PayPalProvider implements PaymentProvider {
         },
       });
 
-      const order = await response.json();
+      const order = await response.json() as any;
       
       // Verify order status is COMPLETED
       return order.status === 'COMPLETED' || order.status === 'APPROVED';

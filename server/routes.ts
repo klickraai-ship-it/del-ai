@@ -124,12 +124,12 @@ async function requireAuth(req: any, res: any, next: any) {
       }
 
       // Add remaining time to user object for frontend
-      user.demoRemainingMs = DEMO_DURATION_MS - elapsedTime;
+      (user as any).demoRemainingMs = DEMO_DURATION_MS - elapsedTime;
     }
 
     // Add userId and user to request for use in route handlers
-    req.userId = session.userId;
-    req.user = user;
+    (req as any).userId = session.userId;
+    (req as any).user = user;
     next();
   } catch (error) {
     console.error("Auth middleware error:", error);
@@ -155,6 +155,15 @@ function generateSessionToken(): string {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+
+  // Health check endpoint
+  app.get("/api/health", (_req, res) => {
+    res.status(200).json({ 
+      status: "ok", 
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime()
+    });
+  });
 
   setupTrackingRoutes(app);
 

@@ -1,7 +1,7 @@
 import type { Request, Response, Express } from 'express';
 import { promises as dns } from 'dns';
 import { db } from './db';
-import { campaignSubscribers, subscribers, linkClicks } from '../shared/schema';
+import { campaignSubscribers, subscribers, linkClicks, campaigns } from '../shared/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import { EmailTrackingService } from './emailService';
 
@@ -90,11 +90,20 @@ export function setupTrackingRoutes(app: Express) {
         return res.status(400).send('Blocked URL - DNS resolution failed');
       }
 
-      await db.insert(linkClicks).values({
-        campaignId: decoded.campaignId,
-        subscriberId: decoded.subscriberId,
-        url: decoded.url,
+      // Get userId from campaign
+      const campaign = await db.query.campaigns.findFirst({
+        where: eq(campaigns.id, decoded.campaignId),
+        columns: { userId: true }
       });
+
+      if (campaign) {
+        await db.insert(linkClicks).values({
+          userId: campaign.userId,
+          campaignId: decoded.campaignId,
+          subscriberId: decoded.subscriberId,
+          url: decoded.url,
+        });
+      }
 
       await db.execute(sql`
         UPDATE campaign_subscribers
@@ -113,13 +122,13 @@ export function setupTrackingRoutes(app: Express) {
   app.get('/unsubscribe/:token', async (req: Request, res: Response) => {
     try {
       const { token } = req.params;
-      const subscriberId = EmailTrackingService.decodeUnsubscribeToken(token);
+      const decoded = EmailTrackingService.decodeUnsubscribeToken(token);
 
-      if (subscriberId) {
+      if (decoded) {
         const [subscriber] = await db
           .select()
           .from(subscribers)
-          .where(eq(subscribers.id, subscriberId))
+          .where(eq(subscribers.id, decoded.subscriberId))
           .limit(1);
 
         if (subscriber) {
@@ -219,13 +228,13 @@ export function setupTrackingRoutes(app: Express) {
   app.post('/api/unsubscribe/:token', async (req: Request, res: Response) => {
     try {
       const { token } = req.params;
-      const subscriberId = EmailTrackingService.decodeUnsubscribeToken(token);
+      const decoded = EmailTrackingService.decodeUnsubscribeToken(token);
 
-      if (subscriberId) {
+      if (decoded) {
         await db.execute(sql`
           UPDATE subscribers
           SET status = 'unsubscribed'
-          WHERE id = ${subscriberId}
+          WHERE id = ${decoded.subscriberId}
         `);
 
         res.json({ success: true });
