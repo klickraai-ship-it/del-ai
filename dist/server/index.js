@@ -1,0 +1,106 @@
+import express from "express";
+import helmet from "helmet";
+import { registerRoutes } from "./routes.js";
+import { setupVite, serveStatic, log } from "./vite.js";
+import { enforceEnvironment } from "./envValidator.js";
+import { runMigrations } from "./migrations.js";
+const app = express();
+const isDevelopment = process.env.NODE_ENV !== 'production';
+if (!isDevelopment) {
+    app.use(helmet({
+        contentSecurityPolicy: {
+            directives: {
+                defaultSrc: ["'self'"],
+                styleSrc: ["'self'", "'unsafe-inline'"],
+                scriptSrc: ["'self'"],
+                imgSrc: ["'self'", "data:", "https:"],
+                connectSrc: ["'self'"],
+                fontSrc: ["'self'"],
+                objectSrc: ["'none'"],
+                mediaSrc: ["'self'"],
+                frameSrc: ["'none'"],
+            },
+        },
+        hsts: {
+            maxAge: 31536000,
+            includeSubDomains: true,
+            preload: true,
+        },
+        frameguard: {
+            action: 'deny',
+        },
+        noSniff: true,
+        xssFilter: true,
+    }));
+}
+app.use(express.json({
+    verify: (req, _res, buf) => {
+        req.rawBody = buf;
+    }
+}));
+app.use(express.urlencoded({ extended: false }));
+app.use((req, res, next) => {
+    const start = Date.now();
+    const path = req.path;
+    let capturedJsonResponse = undefined;
+    const originalResJson = res.json;
+    res.json = function (bodyJson, ...args) {
+        capturedJsonResponse = bodyJson;
+        return originalResJson.apply(res, [bodyJson, ...args]);
+    };
+    res.on("finish", () => {
+        const duration = Date.now() - start;
+        if (path.startsWith("/api")) {
+            let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+            if (capturedJsonResponse) {
+                logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+            }
+            if (logLine.length > 80) {
+                logLine = logLine.slice(0, 79) + "…";
+            }
+            log(logLine);
+        }
+    });
+    next();
+});
+(async () => {
+    enforceEnvironment();
+    await runMigrations();
+    const server = await registerRoutes(app);
+    app.use((err, _req, res, _next) => {
+        const status = err.status || err.statusCode || 500;
+        const message = err.message || "Internal Server Error";
+        res.status(status).json({ message });
+        throw err;
+    });
+    const originalUse = app.use.bind(app);
+    app.use = function (path, ...args) {
+        if (path === '*') {
+            return originalUse(...args);
+        }
+        return originalUse(path, ...args);
+    };
+    // importantly only setup vite in development and after
+    // setting up all the other routes so the catch-all route
+    // doesn't interfere with the other routes
+    if (app.get("env") === "development") {
+        await setupVite(app, server);
+    }
+    else {
+        serveStatic(app);
+    }
+    // ALWAYS serve the app on the port specified in the environment variable PORT
+    // Other ports are firewalled. Default to 5000 if not specified.
+    // this serves both the API and the client.
+    // It is the only port that is not firewalled.
+    // PGPORT is separate and used for PostgreSQL connections
+    const port = parseInt(process.env.PORT || '5000', 10);
+    const host = process.platform === 'win32' ? 'localhost' : '0.0.0.0';
+    server.listen({
+        port,
+        host,
+        reusePort: process.platform !== 'win32',
+    }, () => {
+        log(`serving on port ${port}`);
+    });
+})();
