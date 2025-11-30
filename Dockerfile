@@ -34,6 +34,8 @@ COPY --from=builder /app/dist ./dist
 COPY server ./server
 COPY shared ./shared
 COPY components ./components
+COPY vite.config.ts ./vite.config.ts
+COPY tsconfig.json ./tsconfig.json
 
 # Expose port 5000 (Coolify will proxy to this)
 EXPOSE 5000
