@@ -1,7 +1,6 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-
-const App = () => <h1>Hello from Vite + React!</h1>;
+import App from "../App";
 
 const root = createRoot(document.getElementById("root")!);
 root.render(<App />);
