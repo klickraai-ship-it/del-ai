@@ -80,6 +80,10 @@ export function serveStatic(app: Express) {
     );
   }
 
+
+  // Serve /assets/* from dist/assets
+  app.use('/assets', express.static(path.join(distPath, 'assets')));
+  // Serve all other static files (e.g., index.html, favicon, etc.)
   app.use(express.static(distPath));
 
   // fall through to index.html if the file doesn't exist
